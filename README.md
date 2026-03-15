@@ -1,8 +1,8 @@
 # infermodel
 
-Rust-backed schema inference from `Iterable[Mapping]` data (e.g. list of dicts, generators) with Pydantic model emission.
+**Rust-backed schema inference from any iterable of dict-like rows → Pydantic v2 models.**
 
-Infer a schema from an iterable of mappings (e.g. list, tuple, or generator of dicts), then convert that inferred schema into a Pydantic model on the Python side—without hardcoding schema logic in application code. By default at most 10,000 items are used for inference; set `config.sample_size` to change this (0 = no limit).
+Infer a schema from `Iterable[Mapping[str, Any]]` (list of dicts, generators, etc.), then get an introspectable schema dict or a dynamic Pydantic model—no hand-written schemas. Data-source agnostic: pass whatever yields rows of dicts; optional adapter helpers for JSON, CSV, Parquet, and Pandas are [planned](ROADMAP.md#adapter-layer-data-source-agnostic-format-helpers). By default at most 10,000 rows are used for inference; set `config.sample_size` to change this (0 = no limit).
 
 ## Features
 
@@ -12,6 +12,7 @@ Infer a schema from an iterable of mappings (e.g. list, tuple, or generator of d
 - **Optional null/bool from strings**: Set `infer_string_literals=True` to treat `"null"`/`"true"`/`"false"`/`"yes"`/`"no"` as null or bool (for full CSV/JSON-style parsing).
 - **Numeric promotion**: int+float promotes to float; incompatible scalar mixes become `Any`
 - **Required vs nullable**: Tracks presence (missing key → optional) and explicit `None` (nullable) separately
+- **Sampling**: Use first N rows (default 10k) so large streams and generators are safe and fast
 
 ## Installation
 
@@ -77,7 +78,7 @@ Model = infer_model(rows, model_name="User", config=InferConfig(infer_string_lit
   - **Null-like**: `"null"`, `"none"`, `"nil"` (case-insensitive) → treated as null (column is nullable).
   - **Boolean-like**: `"true"`, `"false"`, `"yes"`, `"no"` → `bool`.
   That mode is not round-trip compatible for those columns (the model expects parsed types).
-- **Native types**: Python `int`, `float`, `bool`, `None`, list, and dict are always classified by type; date/datetime/time objects are recognized when present.
+- **Native types**: Python `int`, `float`, `bool`, `None` are classified by type. List and dict values are currently treated as `Any`; nested dict → nested model inference is [planned for 1.0](ROADMAP.md). Date/datetime/time objects are recognized when present but emitted as `Any` for now.
 
 ## Required vs nullable
 
@@ -86,6 +87,14 @@ Model = infer_model(rows, model_name="User", config=InferConfig(infer_string_lit
 - **Nullable**: at least one row had explicit `None` for that field.
 
 These are independent: a field can be required and nullable, or optional and not nullable.
+
+## Limitations
+
+- **Nested dicts**: Currently inferred as `Any`; recursive nested model inference is [planned for 1.0](ROADMAP.md).
+- **Lists**: List values are inferred as `Any`; `list[T]` inference is planned for 1.1+.
+- **Dates**: Real `date`/`datetime`/`time` objects are detected but the emitted type is `Any`; proper types and string parsing are planned.
+
+For full scope and future work (adapters, Pydantic alignment, outliers), see [ROADMAP.md](ROADMAP.md).
 
 ## Development
 
@@ -98,6 +107,11 @@ maturin develop
 # Run tests
 pytest
 ```
+
+## Links
+
+- [Roadmap](ROADMAP.md) — 1.0 plan, nested structs, adapter layer, Pydantic alignment
+- [Repository](https://github.com/eddiethedean/infermodel)
 
 ## License
 
