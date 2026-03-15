@@ -149,9 +149,20 @@ Backlog of features that fit the package; not committed to a release. Prioritize
 
 ### Integrations
 
-- **Pandas** — `infer_model_from_dataframe(df, sample_size=...)` that turns a slice of the DataFrame into dicts and calls `infer_model`.
-- **CSV / JSON file helpers** — Thin helpers that take a path or file-like, read a sample, and return an inferred model.
 - **TypedDict / Protocol emission** — Option to emit `TypedDict` or `Protocol` instead of (or alongside) Pydantic model for static typing without runtime validation.
+
+### Adapter layer (data-source agnostic, format helpers)
+
+**Principle**: Core stays format-agnostic (`Iterable[Mapping[str, Any]]` only). Adapters are thin helpers that convert a format-specific input → iterable of dicts → `infer_schema` / `infer_model`. Optional dependencies per adapter keep the base install minimal; streaming where possible (yield rows, respect `sample_size`).
+
+- **JSON** — `infer_schema_from_json(path_or_file, config=...)` / `infer_model_from_json(...)`: parse JSON array (or stream) → iterable of dicts → core. Support single JSON array and optionally NDJSON (newline-delimited) for streaming.
+- **CSV** — `infer_schema_from_csv(path_or_file, config=...)` / `infer_model_from_csv(...)`: e.g. `csv.DictReader` → iterable of dicts → core. Stdlib only; no extra deps. Option for delimiter, encoding.
+- **NDJSON / JSON Lines** — Can be part of JSON adapter (detect or flag): one JSON object per line → yield dicts → core; good for large files.
+- **Pandas** — `infer_schema_from_dataframe(df, config=...)` / `infer_model_from_dataframe(df, ...)`: `df.to_dict('records')` or chunked iteration → iterable of dicts → core. Optional extra `[pandas]`.
+- **Parquet** — `infer_schema_from_parquet(path_or_file, config=...)` / `infer_model_from_parquet(...)`: read via pyarrow or pandas in chunks → iterable of dicts → core. Optional extra `[parquet]` (pyarrow or pandas).
+- **Extras in pyproject** — e.g. `infermodel[csv]` (stdlib-only, no new deps), `infermodel[pandas]`, `infermodel[parquet]` so users only pull what they need; base package remains dependency-light.
+
+**Exit criterion**: Every common format has a one-liner to “infer from this source” without the core knowing about the format; all adapters document that they pass through `config` (including `sample_size`).
 
 ### Pydantic alignment
 
