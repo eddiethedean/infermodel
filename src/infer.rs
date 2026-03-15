@@ -89,7 +89,12 @@ fn process_field(
     let evidence = field_evidence.entry(name).or_default();
     evidence.presence_count += 1;
 
-    let class = classify_value(&value).map_err(|e| InferError::InvalidInput(e.to_string()))?;
+    let class = classify_value(
+        &value,
+        config.infer_string_numbers,
+        config.infer_string_literals,
+    )
+    .map_err(|e| InferError::InvalidInput(e.to_string()))?;
     if class == ValueClass::None {
         evidence.null_count += 1;
     } else {
@@ -118,8 +123,14 @@ fn merge_type_specs(
 pub fn infer_schema_py(
     py: Python<'_>,
     data: &Bound<'_, PyAny>,
+    infer_string_numbers: bool,
+    infer_string_literals: bool,
 ) -> PyResult<PyObject> {
-    let config = InferConfig::default();
+    let config = InferConfig {
+        infer_string_numbers,
+        infer_string_literals,
+        ..InferConfig::default()
+    };
     let model = infer_schema_impl(py, data, &config)?;
     let value = schema_to_python_dict(&model);
     Ok(crate::value_to_python(py, &value)?)

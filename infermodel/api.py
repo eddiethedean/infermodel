@@ -28,7 +28,11 @@ def infer_schema(
         Schema dict suitable for introspection or model_from_schema().
     """
     _config = config if config is not None else InferConfig()
-    return _infermodel.infer_schema(data)
+    return _infermodel.infer_schema(
+        data,
+        infer_string_numbers=_config.infer_string_numbers,
+        infer_string_literals=_config.infer_string_literals,
+    )
 
 
 def infer_model(

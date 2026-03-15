@@ -8,7 +8,9 @@ Infer a schema from a sequence of mappings (e.g. list or tuple of dicts), then c
 
 - **Rust core**: Performance-critical traversal, merge logic, and required/nullable tracking
 - **Python ergonomics**: Pydantic v2 model creation via `infer_model(...)`
-- **Conservative defaults**: Strings stay strings; int+float promotes to float; incompatible mixes become `Any`
+- **Number inference from strings (default)**: String columns that look like numbers are inferred as `int` or `float` (e.g. `"42"`, `"3.14"`). Set `infer_string_numbers=False` to keep all strings as `str`.
+- **Optional null/bool from strings**: Set `infer_string_literals=True` to treat `"null"`/`"true"`/`"false"`/`"yes"`/`"no"` as null or bool (for full CSV/JSON-style parsing).
+- **Numeric promotion**: int+float promotes to float; incompatible scalar mixes become `Any`
 - **Required vs nullable**: Tracks presence (missing key → optional) and explicit `None` (nullable) separately
 
 ## Installation
@@ -42,6 +44,18 @@ Model = infer_model(data, model_name="Record")
 instance = Model(id=1, name="Alice")
 ```
 
+By default, number-like strings (`"42"`, `"3.14"`) are inferred as int/float. For CSV with boolean or null-like strings, set `infer_string_literals=True`:
+
+```python
+import csv, io
+from infermodel import infer_model, InferConfig
+
+raw = "id,name,active\n1,Alice,true\n2,Bob,false"
+rows = list(csv.DictReader(io.StringIO(raw)))
+# id and active get int/bool when infer_string_literals=True
+Model = infer_model(rows, model_name="User", config=InferConfig(infer_string_literals=True))
+```
+
 ## API
 
 - **`infer_schema(data, config=None)`**  
@@ -51,10 +65,19 @@ instance = Model(id=1, name="Alice")
   Infers the schema and returns a dynamic Pydantic model class.
 
 - **`InferConfig`**  
-  Dataclass for policy options (e.g. `incompatible_scalar_policy`, `string_date_policy`). V1 uses built-in policies only.
+  **`infer_string_numbers=True`** (default): infer int/float from string content. **`infer_string_literals=False`** (default): set to `True` to infer null/bool from `"null"`/`"true"`/`"false"`/`"yes"`/`"no"`.
 
 - **`model_from_schema(schema, model_name="InferredModel")`**  
   Build a Pydantic model from an existing schema dict (e.g. from `infer_schema`).
+
+## Type inference
+
+- **Number strings (default)**: String values that parse as integers or floats are inferred as `int` or `float` (e.g. `"42"`, `"3.14"`). Set `infer_string_numbers=False` to keep every string as `str`.
+- **Null/bool strings (opt-in)**: With **`infer_string_literals=True`**:
+  - **Null-like**: `"null"`, `"none"`, `"nil"` (case-insensitive) → treated as null (column is nullable).
+  - **Boolean-like**: `"true"`, `"false"`, `"yes"`, `"no"` → `bool`.
+  That mode is not round-trip compatible for those columns (the model expects parsed types).
+- **Native types**: Python `int`, `float`, `bool`, `None`, list, and dict are always classified by type; date/datetime/time objects are recognized when present.
 
 ## Required vs nullable
 

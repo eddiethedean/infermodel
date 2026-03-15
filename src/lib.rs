@@ -47,10 +47,16 @@ pub(crate) fn value_to_python(py: Python<'_>, v: &Value) -> PyResult<PyObject> {
 /// Infer a schema from a sequence of mappings (e.g. list of dicts).
 ///
 /// Returns a nested dict with "type": "model", "fields": { name: { type, required, nullable }, ... }.
+/// By default, number strings ("42", "3.14") are inferred as int/float; set infer_string_numbers=false to keep all strings as str.
 #[pyfunction]
-fn infer_schema(data: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+#[pyo3(signature = (data, *, infer_string_numbers=true, infer_string_literals=false))]
+fn infer_schema(
+    data: &Bound<'_, PyAny>,
+    infer_string_numbers: bool,
+    infer_string_literals: bool,
+) -> PyResult<PyObject> {
     let py = data.py();
-    infer::infer_schema_py(py, data)
+    infer::infer_schema_py(py, data, infer_string_numbers, infer_string_literals)
 }
 
 #[pymodule]

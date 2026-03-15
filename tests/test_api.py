@@ -87,3 +87,73 @@ def test_infer_schema_accepts_tuple():
     schema = infer_schema(data)
     assert schema["type"] == "model"
     assert schema["fields"]["id"]["type"] == "int"
+
+
+def test_infer_schema_default_number_strings_inferred():
+    """Default: number strings are inferred as int/float."""
+    data = [{"count": "42"}, {"count": "100"}]
+    schema = infer_schema(data)
+    assert schema["fields"]["count"]["type"] == "int"
+    data_float = [{"x": "3.14"}, {"x": "2.5"}]
+    schema2 = infer_schema(data_float)
+    assert schema2["fields"]["x"]["type"] == "float"
+
+
+def test_infer_schema_no_number_inference_when_disabled():
+    """With infer_string_numbers=False, string columns stay str."""
+    data = [{"count": "42"}, {"name": "hello"}]
+    schema = infer_schema(data, config=InferConfig(infer_string_numbers=False))
+    assert schema["fields"]["count"]["type"] == "str"
+    assert schema["fields"]["name"]["type"] == "str"
+
+
+def test_infer_schema_string_looks_like_int():
+    """String columns that look like integers are inferred as int (default)."""
+    data = [{"count": "42"}, {"count": "100"}]
+    schema = infer_schema(data)
+    assert schema["fields"]["count"]["type"] == "int"
+
+
+def test_infer_schema_string_looks_like_float():
+    """String columns that look like floats are inferred as float (default)."""
+    data = [{"x": "3.14"}, {"x": "2.5"}]
+    schema = infer_schema(data)
+    assert schema["fields"]["x"]["type"] == "float"
+
+
+def test_infer_schema_string_mixed_numeric_and_text():
+    """String column with mix of numeric and non-numeric merges to any."""
+    data = [{"id": "42"}, {"id": "hello"}]
+    schema = infer_schema(data)
+    assert schema["fields"]["id"]["type"] == "any"
+
+
+def test_infer_schema_string_looks_like_bool():
+    """With infer_string_literals=True, string columns that look like booleans are inferred as bool."""
+    data = [{"active": "true"}, {"active": "false"}]
+    schema = infer_schema(data, config=InferConfig(infer_string_literals=True))
+    assert schema["fields"]["active"]["type"] == "bool"
+
+    data_yes_no = [{"flag": "yes"}, {"flag": "no"}]
+    schema2 = infer_schema(data_yes_no, config=InferConfig(infer_string_literals=True))
+    assert schema2["fields"]["flag"]["type"] == "bool"
+
+
+def test_infer_schema_string_null_like_nullable():
+    """With infer_string_literals=True, string 'null' is treated as null (column becomes nullable)."""
+    data = [{"id": "1"}, {"id": "null"}]
+    schema = infer_schema(data, config=InferConfig(infer_string_literals=True))
+    assert schema["fields"]["id"]["nullable"] is True
+    assert schema["fields"]["id"]["type"] == "int"
+
+
+def test_infer_schema_json_style_strings():
+    """With infer_string_literals=True, null/bool from strings; numbers inferred by default."""
+    data = [
+        {"count": "42", "active": "true", "note": "ok"},
+        {"count": "0", "active": "false", "note": "null"},
+    ]
+    schema = infer_schema(data, config=InferConfig(infer_string_literals=True))
+    assert schema["fields"]["count"]["type"] == "int"
+    assert schema["fields"]["active"]["type"] == "bool"
+    assert schema["fields"]["note"]["nullable"] is True

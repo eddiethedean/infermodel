@@ -4,6 +4,35 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyDict, PyFloat, PyList, PyLong, PyUnicode};
 use std::fmt;
 
+/// For string values, infer type from content based on flags.
+/// When infer_string_literals: null-like, boolean-like.
+/// When infer_string_numbers: int then float.
+fn try_classify_string_content(s: &str, infer_string_numbers: bool, infer_string_literals: bool) -> ValueClass {
+    let s = s.trim();
+    if s.is_empty() {
+        return ValueClass::Str;
+    }
+    if infer_string_literals {
+        if s.eq_ignore_ascii_case("null") || s.eq_ignore_ascii_case("none") || s.eq_ignore_ascii_case("nil") {
+            return ValueClass::None;
+        }
+        if s.eq_ignore_ascii_case("true") || s.eq_ignore_ascii_case("false")
+            || s.eq_ignore_ascii_case("yes") || s.eq_ignore_ascii_case("no")
+        {
+            return ValueClass::Bool;
+        }
+    }
+    if infer_string_numbers {
+        if let Ok(_) = s.parse::<i64>() {
+            return ValueClass::Int;
+        }
+        if let Ok(_) = s.parse::<f64>() {
+            return ValueClass::Float;
+        }
+    }
+    ValueClass::Str
+}
+
 /// Internal classification of a single value (before merging).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueClass {
@@ -40,7 +69,12 @@ impl fmt::Display for ValueClass {
 }
 
 /// Classify a Python value into a [ValueClass].
-pub fn classify_value(value: &Bound<'_, PyAny>) -> PyResult<ValueClass> {
+/// infer_string_numbers (default on): parse "42", "3.14" as int/float. infer_string_literals (default off): parse "null", "true"/"false" etc.
+pub fn classify_value(
+    value: &Bound<'_, PyAny>,
+    infer_string_numbers: bool,
+    infer_string_literals: bool,
+) -> PyResult<ValueClass> {
     if value.is_none() {
         return Ok(ValueClass::None);
     }
@@ -54,6 +88,11 @@ pub fn classify_value(value: &Bound<'_, PyAny>) -> PyResult<ValueClass> {
         return Ok(ValueClass::Float);
     }
     if value.is_instance_of::<PyUnicode>() {
+        if infer_string_numbers || infer_string_literals {
+            if let Ok(s) = value.extract::<String>() {
+                return Ok(try_classify_string_content(&s, infer_string_numbers, infer_string_literals));
+            }
+        }
         return Ok(ValueClass::Str);
     }
     if value.is_instance_of::<PyList>() {

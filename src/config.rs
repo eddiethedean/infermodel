@@ -75,6 +75,10 @@ pub struct InferConfig {
     pub numeric_promotion: NumericPromotionPolicy,
     pub missing_key_policy: MissingKeyPolicy,
     pub null_policy: NullPolicy,
+    /// When true (default), infer int/float from string content (e.g. "42", "3.14").
+    pub infer_string_numbers: bool,
+    /// When true, infer null and bool from string content ("null"/"true"/"false"/"yes"/"no"). Default false.
+    pub infer_string_literals: bool,
 }
 
 impl Default for InferConfig {
@@ -87,6 +91,8 @@ impl Default for InferConfig {
             numeric_promotion: NumericPromotionPolicy::Promote,
             missing_key_policy: MissingKeyPolicy::Optional,
             null_policy: NullPolicy::Nullable,
+            infer_string_numbers: true,
+            infer_string_literals: false,
         }
     }
 }

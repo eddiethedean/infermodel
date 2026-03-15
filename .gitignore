@@ -19,7 +19,8 @@ Cargo.lock
 *.swp
 *.swo
 
-# Pytest
+# Pytest / Hypothesis
 .pytest_cache/
+.hypothesis/
 .coverage
 htmlcov/

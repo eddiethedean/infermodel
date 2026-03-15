@@ -11,8 +11,8 @@ class InferConfig:
     """
     Configuration for schema inference behavior.
 
-    V1 uses built-in policy values; future versions may support
-    named presets (e.g. strict, pragmatic, api_friendly).
+    By default, number strings ("42", "3.14") are inferred as int/float.
+    Set infer_string_literals=True to also infer "null"/"true"/"false"/"yes"/"no" from strings.
     """
 
     incompatible_scalar_policy: Literal["any", "union", "error"] = "any"
@@ -22,3 +22,7 @@ class InferConfig:
     numeric_promotion: Literal["promote", "strict"] = "promote"
     missing_key_policy: Literal["optional"] = "optional"
     null_policy: Literal["nullable"] = "nullable"
+    # Infer int/float from string content (default True).
+    infer_string_numbers: bool = True
+    # Infer null and bool from "null"/"true"/"false"/"yes"/"no" (default False).
+    infer_string_literals: bool = False
