@@ -44,7 +44,7 @@ pub(crate) fn value_to_python(py: Python<'_>, v: &Value) -> PyResult<PyObject> {
     }
 }
 
-/// Infer a schema from Python list[dict] data.
+/// Infer a schema from a sequence of mappings (e.g. list of dicts).
 ///
 /// Returns a nested dict with "type": "model", "fields": { name: { type, required, nullable }, ... }.
 #[pyfunction]

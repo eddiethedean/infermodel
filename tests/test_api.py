@@ -80,3 +80,11 @@ def test_infer_schema_with_config():
     schema = infer_schema(data, config=config)
     assert schema["type"] == "model"
     assert schema["fields"]["a"]["type"] == "int"
+
+
+def test_infer_schema_accepts_tuple():
+    """Sequence includes tuple, not just list."""
+    data = ({"id": 1}, {"id": 2})
+    schema = infer_schema(data)
+    assert schema["type"] == "model"
+    assert schema["fields"]["id"]["type"] == "int"

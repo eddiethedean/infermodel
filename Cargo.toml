@@ -2,7 +2,7 @@
 name = "infermodel"
 version = "0.1.0"
 edition = "2021"
-description = "Rust core for schema inference from list[dict]"
+description = "Rust core for schema inference from sequence of mappings"
 license = "MIT"
 
 [lib]

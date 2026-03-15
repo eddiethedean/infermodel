@@ -1,4 +1,4 @@
-//! Top-level inference: walk list[dict], build schema, return Python-friendly output.
+//! Top-level inference: walk a sequence of mappings, build schema, return Python-friendly output.
 
 use crate::classify::{classify_value, ValueClass};
 use crate::config::InferConfig;
@@ -9,54 +9,53 @@ use crate::spec::{FieldSpec, ModelSpec, TypeSpec};
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3::types::PyList;
 use std::collections::HashMap;
 
-/// Run inference on Python list[dict] and return a schema (ModelSpec).
+/// Run inference on a Python sequence of mappings (e.g. list of dicts) and return a schema (ModelSpec).
 pub fn infer_schema_impl(
     py: Python<'_>,
     data: &Bound<'_, PyAny>,
     _config: &InferConfig,
 ) -> Result<ModelSpec, InferError> {
-    let list = data
-        .downcast::<PyList>()
-        .map_err(|_| InferError::InvalidInput("expected a list".to_string()))?;
+    let iter = data
+        .iter()
+        .map_err(|e| InferError::InvalidInput(format!("expected a sequence (iterable): {}", e)))?;
 
     let mut field_evidence: HashMap<String, FieldEvidence> = HashMap::new();
-    let total_rows = list.len();
+    let mut total_rows: u32 = 0;
 
-    for item in list.iter() {
-        let dict = item
-            .downcast::<PyDict>()
-            .map_err(|_| InferError::InvalidInput("expected list of dicts".to_string()))?;
+    for item in iter {
+        let item = item.map_err(|e| InferError::InvalidInput(e.to_string()))?;
+        total_rows += 1;
 
-        for (key, value) in dict.iter() {
-            let name = key
-                .extract::<String>()
-                .or_else(|_| key.str().map(|s| s.to_string()))
-                .map_err(|_| InferError::InvalidInput("dict keys must be strings".to_string()))?;
-
-            let evidence = field_evidence.entry(name).or_default();
-            evidence.presence_count += 1;
-
-            let class = classify_value(&value)
-                .map_err(|e| InferError::InvalidInput(e.to_string()))?;
-            if class == ValueClass::None {
-                evidence.null_count += 1;
-            } else {
-                let spec = value_class_to_type_spec(&class);
-                evidence.type_spec = Some(match &evidence.type_spec {
-                    Some(existing) => merge_type_specs(existing, &spec, _config)?,
-                    None => spec,
-                });
+        if let Ok(dict) = item.downcast::<PyDict>() {
+            for (key, value) in dict.iter() {
+                process_field(py, key, value, &mut field_evidence, _config)?;
             }
+        } else if let Ok(items) = item.call_method0("items") {
+            let items_iter = items
+                .iter()
+                .map_err(|e| InferError::InvalidInput(format!("expected mapping with .items(): {}", e)))?;
+            for pair in items_iter {
+                let pair = pair.map_err(|e| InferError::InvalidInput(e.to_string()))?;
+                let key = pair
+                    .get_item(0)
+                    .map_err(|e| InferError::InvalidInput(e.to_string()))?;
+                let value = pair
+                    .get_item(1)
+                    .map_err(|e| InferError::InvalidInput(e.to_string()))?;
+                process_field(py, key, value, &mut field_evidence, _config)?;
+            }
+        } else {
+            return Err(InferError::InvalidInput(
+                "each sequence element must be a mapping (e.g. dict) with .items()".to_string(),
+            ));
         }
     }
 
     let mut fields = IndexMap::new();
     for (name, evidence) in field_evidence {
-        let total = total_rows as u32;
-        let required = evidence.presence_count >= total && total > 0;
+        let required = evidence.presence_count >= total_rows && total_rows > 0;
         let nullable = evidence.null_count > 0;
         let spec = evidence
             .type_spec
@@ -75,6 +74,34 @@ pub fn infer_schema_impl(
     Ok(ModelSpec::with_fields(fields))
 }
 
+fn process_field(
+    _py: Python<'_>,
+    key: Bound<'_, PyAny>,
+    value: Bound<'_, PyAny>,
+    field_evidence: &mut HashMap<String, FieldEvidence>,
+    config: &InferConfig,
+) -> Result<(), InferError> {
+    let name = key
+        .extract::<String>()
+        .or_else(|_| key.str().map(|s| s.to_string()))
+        .map_err(|_| InferError::InvalidInput("mapping keys must be strings".to_string()))?;
+
+    let evidence = field_evidence.entry(name).or_default();
+    evidence.presence_count += 1;
+
+    let class = classify_value(&value).map_err(|e| InferError::InvalidInput(e.to_string()))?;
+    if class == ValueClass::None {
+        evidence.null_count += 1;
+    } else {
+        let spec = value_class_to_type_spec(&class);
+        evidence.type_spec = Some(match &evidence.type_spec {
+            Some(existing) => merge_type_specs(existing, &spec, config)?,
+            None => spec,
+        });
+    }
+    Ok(())
+}
+
 fn merge_type_specs(
     a: &TypeSpec,
     b: &TypeSpec,
@@ -87,7 +114,7 @@ fn merge_type_specs(
     }
 }
 
-/// Entry point: infer schema from list[dict], return Python-dict.
+/// Entry point: infer schema from sequence of mappings, return Python-dict.
 pub fn infer_schema_py(
     py: Python<'_>,
     data: &Bound<'_, PyAny>,

@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "infermodel"
 version = "0.1.0"
-description = "Rust-backed schema inference from list[dict] with Pydantic model emission"
+description = "Rust-backed schema inference from Sequence[Mapping] with Pydantic model emission"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

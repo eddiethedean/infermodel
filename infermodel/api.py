@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from infermodel import _infermodel
 from infermodel.config import InferConfig
@@ -10,18 +10,18 @@ from infermodel.emit_pydantic import model_from_schema
 
 
 def infer_schema(
-    data: list[dict[str, Any]],
+    data: Sequence[Mapping[str, Any]],
     config: InferConfig | None = None,
 ) -> dict[str, Any]:
     """
-    Infer a schema from Python list[dict] data.
+    Infer a schema from a sequence of mappings (e.g. list of dicts).
 
     Returns a nested dict with:
       - "type": "model"
       - "fields": { field_name: { "type", "required", "nullable" }, ... }
 
     Args:
-        data: List of dicts (rows) to infer schema from.
+        data: Sequence of mappings (rows), e.g. list or tuple of dicts.
         config: Optional inference config (default policies if None).
 
     Returns:
@@ -32,7 +32,7 @@ def infer_schema(
 
 
 def infer_model(
-    data: list[dict[str, Any]],
+    data: Sequence[Mapping[str, Any]],
     model_name: str = "InferredModel",
     config: InferConfig | None = None,
 ) -> type:
@@ -40,7 +40,7 @@ def infer_model(
     Infer a schema from data and return a dynamic Pydantic model.
 
     Args:
-        data: List of dicts to infer schema from.
+        data: Sequence of mappings (e.g. list of dicts) to infer schema from.
         model_name: Name for the generated model class.
         config: Optional inference config.
 

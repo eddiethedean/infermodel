@@ -1,8 +1,8 @@
 # infermodel
 
-Rust-backed schema inference from Python `list[dict]` data with Pydantic model emission.
+Rust-backed schema inference from `Sequence[Mapping]` data (e.g. list of dicts) with Pydantic model emission.
 
-Infer a schema from arbitrary nested dictionaries, then convert that inferred schema into a Pydantic model on the Python side—without hardcoding schema logic in application code.
+Infer a schema from a sequence of mappings (e.g. list or tuple of dicts), then convert that inferred schema into a Pydantic model on the Python side—without hardcoding schema logic in application code.
 
 ## Features
 
