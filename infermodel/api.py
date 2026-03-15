@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-from infermodel import _infermodel
+import infermodel._infermodel as _infermodel
 from infermodel.config import InferConfig
 from infermodel.emit_pydantic import model_from_schema
 

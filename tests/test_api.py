@@ -1,6 +1,5 @@
 """Tests for public API: infer_schema and infer_model."""
 
-import pytest
 from infermodel import infer_schema, infer_model, InferConfig
 from infermodel.emit_pydantic import model_from_schema
 

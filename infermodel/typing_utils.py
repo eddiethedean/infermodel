@@ -49,7 +49,7 @@ def _compound_to_annotation(type_info: dict[str, Any]) -> Any:
             item_ann = _compound_to_annotation(item)
         else:
             item_ann = Any
-        return list[item_ann]
+        return list[item_ann]  # type: ignore[valid-type]
     if kind == "model":
         # Nested model: we build dynamically in emit_pydantic
         return typing.Any  # Placeholder; actual nested model built there

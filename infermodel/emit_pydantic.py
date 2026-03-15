@@ -39,4 +39,4 @@ def model_from_schema(
             default = ...
         model_fields[name] = (ann, default)
 
-    return create_model(model_name, **model_fields)
+    return create_model(model_name, **model_fields)  # type: ignore[call-overload]

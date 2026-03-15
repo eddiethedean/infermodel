@@ -20,7 +20,7 @@ pip install -e .
 # or: maturin develop
 ```
 
-Requirements: Python 3.10+, Pydantic v2. Build requires Rust (for the extension).
+Requirements: Python 3.9+, Pydantic v2. Build requires Rust (for the extension).
 
 ## Quick start
 

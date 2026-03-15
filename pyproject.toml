@@ -7,7 +7,7 @@ name = "infermodel"
 version = "0.1.0"
 description = "Rust-backed schema inference from Sequence[Mapping] with Pydantic model emission"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "infermodel contributors" }]
 keywords = ["schema", "inference", "pydantic", "validation"]
@@ -16,6 +16,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -25,6 +26,10 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/eddiethedean/infermodel"
+Repository = "https://github.com/eddiethedean/infermodel"
 
 [project.optional-dependencies]
 dev = [
@@ -36,3 +41,11 @@ module-name = "infermodel._infermodel"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+exclude = ["target", ".venv"]
+line-length = 88
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
