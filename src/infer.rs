@@ -25,6 +25,9 @@ pub fn infer_schema_impl(
     let mut total_rows: u32 = 0;
 
     for item in iter {
+        if _config.sample_size > 0 && (total_rows as usize) >= _config.sample_size {
+            break;
+        }
         let item = item.map_err(|e| InferError::InvalidInput(e.to_string()))?;
         total_rows += 1;
 
@@ -119,16 +122,18 @@ fn merge_type_specs(
     }
 }
 
-/// Entry point: infer schema from sequence of mappings, return Python-dict.
+/// Entry point: infer schema from iterable of mappings, return Python-dict.
 pub fn infer_schema_py(
     py: Python<'_>,
     data: &Bound<'_, PyAny>,
     infer_string_numbers: bool,
     infer_string_literals: bool,
+    sample_size: usize,
 ) -> PyResult<PyObject> {
     let config = InferConfig {
         infer_string_numbers,
         infer_string_literals,
+        sample_size,
         ..InferConfig::default()
     };
     let model = infer_schema_impl(py, data, &config)?;

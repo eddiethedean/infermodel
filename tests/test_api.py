@@ -82,11 +82,35 @@ def test_infer_schema_with_config():
 
 
 def test_infer_schema_accepts_tuple():
-    """Sequence includes tuple, not just list."""
+    """Iterable includes tuple, not just list."""
     data = ({"id": 1}, {"id": 2})
     schema = infer_schema(data)
     assert schema["type"] == "model"
     assert schema["fields"]["id"]["type"] == "int"
+
+
+def test_infer_schema_accepts_generator():
+    """Iterable includes generator; inference uses first sample_size items."""
+    def rows():
+        yield {"id": 1, "x": "a"}
+        yield {"id": 2, "x": "b"}
+    schema = infer_schema(rows())
+    assert schema["type"] == "model"
+    assert schema["fields"]["id"]["type"] == "int"
+    assert schema["fields"]["x"]["type"] == "str"
+
+
+def test_infer_schema_sample_size_caps_rows():
+    """sample_size limits how many rows are used for inference."""
+    # 5 rows; with sample_size=2 only first 2 are used (both have "a")
+    data = ({"a": i} for i in range(5))
+    config = InferConfig(sample_size=2)
+    schema = infer_schema(data, config=config)
+    assert schema["fields"]["a"]["type"] == "int"
+    # With sample_size=1 we still get one row
+    data2 = ({"b": 1} for _ in range(10))
+    schema2 = infer_schema(data2, config=InferConfig(sample_size=1))
+    assert schema2["fields"]["b"]["type"] == "int"
 
 
 def test_infer_schema_default_number_strings_inferred():

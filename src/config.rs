@@ -79,6 +79,8 @@ pub struct InferConfig {
     pub infer_string_numbers: bool,
     /// When true, infer null and bool from string content ("null"/"true"/"false"/"yes"/"no"). Default false.
     pub infer_string_literals: bool,
+    /// Max number of items to sample for inference (default 10_000). 0 = no limit.
+    pub sample_size: usize,
 }
 
 impl Default for InferConfig {
@@ -93,6 +95,7 @@ impl Default for InferConfig {
             null_policy: NullPolicy::Nullable,
             infer_string_numbers: true,
             infer_string_literals: false,
+            sample_size: 10_000,
         }
     }
 }

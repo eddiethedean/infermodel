@@ -44,19 +44,21 @@ pub(crate) fn value_to_python(py: Python<'_>, v: &Value) -> PyResult<PyObject> {
     }
 }
 
-/// Infer a schema from a sequence of mappings (e.g. list of dicts).
+/// Infer a schema from an iterable of mappings (e.g. list of dicts).
 ///
 /// Returns a nested dict with "type": "model", "fields": { name: { type, required, nullable }, ... }.
 /// By default, number strings ("42", "3.14") are inferred as int/float; set infer_string_numbers=false to keep all strings as str.
+/// At most sample_size items are used for inference (0 = no limit).
 #[pyfunction]
-#[pyo3(signature = (data, *, infer_string_numbers=true, infer_string_literals=false))]
+#[pyo3(signature = (data, *, infer_string_numbers=true, infer_string_literals=false, sample_size=10000))]
 fn infer_schema(
     data: &Bound<'_, PyAny>,
     infer_string_numbers: bool,
     infer_string_literals: bool,
+    sample_size: usize,
 ) -> PyResult<PyObject> {
     let py = data.py();
-    infer::infer_schema_py(py, data, infer_string_numbers, infer_string_literals)
+    infer::infer_schema_py(py, data, infer_string_numbers, infer_string_literals, sample_size)
 }
 
 #[pymodule]

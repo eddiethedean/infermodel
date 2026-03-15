@@ -11,6 +11,7 @@ dist/
 # Rust
 target/
 Cargo.lock
+*.dylib.dSYM/
 
 # IDE / OS
 .idea/

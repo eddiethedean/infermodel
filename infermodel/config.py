@@ -26,3 +26,5 @@ class InferConfig:
     infer_string_numbers: bool = True
     # Infer null and bool from "null"/"true"/"false"/"yes"/"no" (default False).
     infer_string_literals: bool = False
+    # Max number of items to use for inference when data is an iterable (default 10_000). 0 = no limit.
+    sample_size: int = 10_000

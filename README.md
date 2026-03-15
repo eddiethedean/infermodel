@@ -1,8 +1,8 @@
 # infermodel
 
-Rust-backed schema inference from `Sequence[Mapping]` data (e.g. list of dicts) with Pydantic model emission.
+Rust-backed schema inference from `Iterable[Mapping]` data (e.g. list of dicts, generators) with Pydantic model emission.
 
-Infer a schema from a sequence of mappings (e.g. list or tuple of dicts), then convert that inferred schema into a Pydantic model on the Python side—without hardcoding schema logic in application code.
+Infer a schema from an iterable of mappings (e.g. list, tuple, or generator of dicts), then convert that inferred schema into a Pydantic model on the Python side—without hardcoding schema logic in application code. By default at most 10,000 items are used for inference; set `config.sample_size` to change this (0 = no limit).
 
 ## Features
 
@@ -65,7 +65,7 @@ Model = infer_model(rows, model_name="User", config=InferConfig(infer_string_lit
   Infers the schema and returns a dynamic Pydantic model class.
 
 - **`InferConfig`**  
-  **`infer_string_numbers=True`** (default): infer int/float from string content. **`infer_string_literals=False`** (default): set to `True` to infer null/bool from `"null"`/`"true"`/`"false"`/`"yes"`/`"no"`.
+  **`infer_string_numbers=True`** (default): infer int/float from string content. **`infer_string_literals=False`** (default): set to `True` to infer null/bool from `"null"`/`"true"`/`"false"`/`"yes"`/`"no"`. **`sample_size=10_000`**: max number of items to use for inference (0 = no limit); use a larger value or 0 for very large iterables when you want to sample more or all rows.
 
 - **`model_from_schema(schema, model_name="InferredModel")`**  
   Build a Pydantic model from an existing schema dict (e.g. from `infer_schema`).

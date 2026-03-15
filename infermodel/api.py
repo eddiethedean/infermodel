@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping
 
 import infermodel._infermodel as _infermodel
 from infermodel.config import InferConfig
@@ -10,18 +10,20 @@ from infermodel.emit_pydantic import model_from_schema
 
 
 def infer_schema(
-    data: Sequence[Mapping[str, Any]],
+    data: Iterable[Mapping[str, Any]],
     config: InferConfig | None = None,
 ) -> dict[str, Any]:
     """
-    Infer a schema from a sequence of mappings (e.g. list of dicts).
+    Infer a schema from an iterable of mappings (e.g. list of dicts, generator).
 
     Returns a nested dict with:
       - "type": "model"
       - "fields": { field_name: { "type", "required", "nullable" }, ... }
 
+    At most config.sample_size items are used for inference (default 10,000; 0 = no limit).
+
     Args:
-        data: Sequence of mappings (rows), e.g. list or tuple of dicts.
+        data: Iterable of mappings (rows), e.g. list, tuple, or generator of dicts.
         config: Optional inference config (default policies if None).
 
     Returns:
@@ -32,11 +34,12 @@ def infer_schema(
         data,
         infer_string_numbers=_config.infer_string_numbers,
         infer_string_literals=_config.infer_string_literals,
+        sample_size=_config.sample_size,
     )
 
 
 def infer_model(
-    data: Sequence[Mapping[str, Any]],
+    data: Iterable[Mapping[str, Any]],
     model_name: str = "InferredModel",
     config: InferConfig | None = None,
 ) -> type:
@@ -44,9 +47,9 @@ def infer_model(
     Infer a schema from data and return a dynamic Pydantic model.
 
     Args:
-        data: Sequence of mappings (e.g. list of dicts) to infer schema from.
+        data: Iterable of mappings (e.g. list of dicts or generator) to infer schema from.
         model_name: Name for the generated model class.
-        config: Optional inference config.
+        config: Optional inference config (sample_size limits how many items are used; default 10,000).
 
     Returns:
         A Pydantic model class (type) that can validate the inferred shape.
