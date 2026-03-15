@@ -133,6 +133,7 @@ Backlog of features that fit the package; not committed to a release. Prioritize
 - **OpenAPI-friendly output** — Ensure inferred models give good `model_json_schema()` or provide a helper for OpenAPI-ready schema.
 - **Schema diff / evolution** — Compare two inferred schemas (e.g. old vs new sample), report added/removed/changed types for drift checks.
 - **Minimal vs strict preset** — Option to infer “minimal” (e.g. more optional) vs “strict” (required when present in all rows) for different use cases.
+- **Force all fields optional or required** — Optional config (e.g. `require_all=True` or `optional_all=True`) to override inferred required/optional: emit every field as required (no default) or every field as optional (default `None`), regardless of presence in the sample. Useful for strict validation or permissive ingestion without changing inference logic.
 
 ### Performance & scale
 
