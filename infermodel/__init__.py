@@ -7,9 +7,11 @@ then convert that inferred schema into a Pydantic model on the Python side.
 
 from infermodel.api import infer_schema, infer_model
 from infermodel.config import InferConfig
+from infermodel.emit_pydantic import model_from_schema
 
 __all__ = [
     "infer_schema",
     "infer_model",
+    "model_from_schema",
     "InferConfig",
 ]

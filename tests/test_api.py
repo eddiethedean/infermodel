@@ -1,7 +1,6 @@
 """Tests for public API: infer_schema and infer_model."""
 
-from infermodel import infer_schema, infer_model, InferConfig
-from infermodel.emit_pydantic import model_from_schema
+from infermodel import infer_schema, infer_model, InferConfig, model_from_schema
 
 
 def test_infer_schema_flat():
@@ -97,6 +96,20 @@ def test_model_from_schema():
     inst = Model(id=1, name=None)
     assert inst.id == 1
     assert inst.name is None
+
+
+def test_model_from_schema_exported_from_package():
+    # Import from top-level package to ensure it is part of the public API.
+    from infermodel import model_from_schema as exported  # type: ignore[redefined-builtin]
+
+    schema = {
+        "type": "model",
+        "fields": {
+            "x": {"type": "int", "required": True, "nullable": False},
+        },
+    }
+    Model = exported(schema, model_name="Exported")
+    assert Model(x=1).x == 1
 
 
 def test_infer_schema_with_config():

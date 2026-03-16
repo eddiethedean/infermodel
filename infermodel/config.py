@@ -13,6 +13,8 @@ class InferConfig:
 
     By default, number strings ("42", "3.14") are inferred as int/float.
     Set infer_string_literals=True to also infer "null"/"true"/"false"/"yes"/"no" from strings.
+
+    Policy fields (e.g. dict_mixed_policy, numeric_promotion) are passed through to the Rust core.
     """
 
     incompatible_scalar_policy: Literal["any", "union", "error"] = "any"

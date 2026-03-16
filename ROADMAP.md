@@ -56,16 +56,19 @@ Plan from current state to a production-ready 1.0.0 release.
 
 **Exit criterion**: `infer_schema` / `infer_model` support nested dicts end-to-end; nested Pydantic models validate correctly.
 
-**Known limitation (to address in M1)**: nested “required” semantics are currently conservative when merging nested dicts across rows; a nested key missing from some observed nested dicts may still be marked `required=True` in the merged nested model. Nullability is tracked correctly when `None` is observed.
-
+---
 ---
 
 ### M1 — Stability and API lock (pre-1.0)
 
-- [ ] **API review**: Freeze public surface (e.g. `infer_schema`, `infer_model`, `InferConfig`, `model_from_schema`); document what is stable vs internal
-- [ ] **Edge-case tests**: Empty iterable, single row, all-None column, very large `sample_size`; document expected behavior
-- [ ] **Error contract**: Document which errors (ValueError, TypeError, etc.) can be raised and when; add minimal tests for error paths
+- [x] **API review**: Freeze public surface (e.g. `infer_schema`, `infer_model`, `InferConfig`, `model_from_schema`); document what is stable vs internal
+- [x] **Edge-case tests**: Empty iterable, single row, all-None column, very large `sample_size`; document expected behavior
+- [x] **Error contract**: Document which errors (ValueError, TypeError, etc.) can be raised and when; add minimal tests for error paths
 - [ ] **Deprecations**: If any names or signatures might change, introduce deprecation path before 1.0
+
+Additional M1 work completed:
+
+- [x] **Nested required semantics**: Nested keys missing from some observed nested dicts are treated as optional (`required=False`), matching top-level semantics.
 
 **Exit criterion**: Team agrees the current API is 1.0-ready and no breaking change is planned for 1.0.
 

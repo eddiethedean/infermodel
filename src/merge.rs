@@ -70,12 +70,12 @@ pub fn merge_type_specs(
 ) -> Result<TypeSpec, InferError> {
     use TypeSpec::*;
     match (a, b) {
-        // Identical types: keep either.
-        (x, y) if std::mem::discriminant(x) == std::mem::discriminant(y) => Ok(a.clone()),
-        // Promote int/float combinations using scalar rules.
-        (Int, Float) | (Float, Int) => merge_scalar_types(&ValueClass::Int, &ValueClass::Float, config),
         // Merging two nested models: merge field-wise.
         (Model(m1), Model(m2)) => Ok(Model(merge_models(m1, m2, config)?)),
+        // Promote int/float combinations using scalar rules.
+        (Int, Float) | (Float, Int) => merge_scalar_types(&ValueClass::Int, &ValueClass::Float, config),
+        // Identical types: keep either (safe for non-model types; model handled above).
+        (x, y) if std::mem::discriminant(x) == std::mem::discriminant(y) => Ok(a.clone()),
         // Dict mixed with non-dict: respect policy (currently Any/Union/Error).
         (Model(_), _other) | (_other, Model(_)) => match config.dict_mixed_policy {
             DictMixedPolicy::Any => Ok(Any),
@@ -111,12 +111,18 @@ fn merge_models(
                 },
             );
         } else {
-            merged.fields.insert(name.clone(), field_a.clone());
+            // Field missing from at least one observed nested dict => not required.
+            let mut f = field_a.clone();
+            f.required = false;
+            merged.fields.insert(name.clone(), f);
         }
     }
     for (name, field_b) in &b.fields {
         if !merged.fields.contains_key(name) {
-            merged.fields.insert(name.clone(), field_b.clone());
+            // Field missing from at least one observed nested dict => not required.
+            let mut f = field_b.clone();
+            f.required = false;
+            merged.fields.insert(name.clone(), f);
         }
     }
     Ok(merged)

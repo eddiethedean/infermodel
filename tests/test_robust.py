@@ -190,15 +190,15 @@ def test_get_fields_raises_on_invalid_schema() -> None:
 
 def test_infer_schema_rejects_non_sequence() -> None:
     """infer_schema rejects non-iterable / non-sequence input."""
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(TypeError):
         infer_schema("not a list")  # type: ignore[arg-type]
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(TypeError):
         infer_schema(123)  # type: ignore[arg-type]
 
 
 def test_infer_schema_rejects_list_of_non_mapping() -> None:
     """infer_schema rejects list of non-dict (e.g. list of lists)."""
-    with pytest.raises((ValueError, TypeError)):
+    with pytest.raises(TypeError):
         infer_schema([[1, 2], [3, 4]])  # type: ignore[arg-type]
 
 
@@ -271,6 +271,29 @@ def test_infer_schema_sparse_fields() -> None:
     schema = infer_schema(data)
     assert schema["fields"]["a"]["required"] is False
     assert schema["fields"]["b"]["required"] is False
+
+
+def test_infer_schema_sample_size_zero_means_no_limit() -> None:
+    """sample_size=0 means no limit; inference should consume the full iterable."""
+    def rows():
+        yield {"x": 1}
+        yield {"x": 2}
+        yield {"x": 3}
+    schema = infer_schema(rows(), config=InferConfig(sample_size=0))
+    assert schema["fields"]["x"]["type"] == "int"
+
+
+def test_infer_schema_large_sample_size_is_ok() -> None:
+    """Very large sample_size behaves like 'no cap' for small inputs (no overflow/weirdness)."""
+    schema = infer_schema([{"x": 1}, {"x": 2}], config=InferConfig(sample_size=10_000_000))
+    assert schema["fields"]["x"]["type"] == "int"
+
+
+def test_numeric_promotion_strict_yields_any_on_int_float_mix() -> None:
+    """With numeric_promotion='strict', int+float does not promote to float (falls back to any)."""
+    data = [{"x": 1}, {"x": 1.5}]
+    schema = infer_schema(data, config=InferConfig(numeric_promotion="strict"))
+    assert schema["fields"]["x"]["type"] == "any"
 
 
 def test_infer_schema_optional_nested_dict() -> None:
@@ -350,10 +373,8 @@ def test_nested_required_vs_nullable_semantics() -> None:
     user_fields = schema["fields"]["user"]["type"]["fields"]
     assert user_fields["name"]["required"] is True
     assert user_fields["name"]["nullable"] is False
-    # Current behavior: nested models are inferred per-observed dict and then merged,
-    # which does not currently decrement required-ness for fields absent in some nested dicts.
-    # (This is a known limitation to address in later work.)
-    assert user_fields["nickname"]["required"] is True
+    # Nested required semantics match top-level: missing in any observed nested dict => required=False.
+    assert user_fields["nickname"]["required"] is False
     assert user_fields["nickname"]["nullable"] is True   # explicitly None in one row
 
     Model = infer_model(data, model_name="NestedSemantics")
@@ -394,3 +415,33 @@ def test_model_from_schema_nested_model_field() -> None:
     assert inst.user.id == 1
     with pytest.raises(ValidationError):
         Model(user={"id": "nope", "name": "Bob"})  # type: ignore[arg-type]
+
+
+def test_dict_mixed_policy_union_produces_union_type() -> None:
+    """With dict_mixed_policy='union', dict+non-dict conflicts produce a union type."""
+    data = [
+        {"meta": {"flag": True}},
+        {"meta": 1},
+    ]
+    schema = infer_schema(data, config=InferConfig(dict_mixed_policy="union"))
+    meta_type = schema["fields"]["meta"]["type"]
+    assert isinstance(meta_type, dict)
+    assert meta_type["type"] == "union"
+    assert len(meta_type["variants"]) == 2
+
+
+def test_dict_mixed_policy_error_raises_value_error() -> None:
+    """With dict_mixed_policy='error', dict+non-dict conflicts raise ValueError."""
+    data = [
+        {"meta": {"flag": True}},
+        {"meta": 1},
+    ]
+    with pytest.raises(ValueError):
+        infer_schema(data, config=InferConfig(dict_mixed_policy="error"))
+
+
+def test_invalid_policy_value_raises_type_error() -> None:
+    """Invalid policy strings are rejected with TypeError (invalid input)."""
+    data = [{"x": 1}]
+    with pytest.raises(TypeError):
+        infer_schema(data, config=InferConfig(dict_mixed_policy="bogus"))  # type: ignore[arg-type]

@@ -28,12 +28,23 @@ def infer_schema(
 
     Returns:
         Schema dict suitable for introspection or model_from_schema().
+
+    Raises:
+        TypeError: If input is not an iterable of mappings, or mapping keys are not strings.
+        ValueError: For policy/config-related errors (e.g. strict policy conflicts).
     """
     _config = config if config is not None else InferConfig()
     return _infermodel.infer_schema(
         data,
         infer_string_numbers=_config.infer_string_numbers,
         infer_string_literals=_config.infer_string_literals,
+        incompatible_scalar_policy=_config.incompatible_scalar_policy,
+        heterogeneous_list_policy=_config.heterogeneous_list_policy,
+        dict_mixed_policy=_config.dict_mixed_policy,
+        string_date_policy=_config.string_date_policy,
+        numeric_promotion=_config.numeric_promotion,
+        missing_key_policy=_config.missing_key_policy,
+        null_policy=_config.null_policy,
         sample_size=_config.sample_size,
     )
 

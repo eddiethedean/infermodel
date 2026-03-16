@@ -1,7 +1,10 @@
 //! Top-level inference: walk a sequence of mappings, build schema, return Python-friendly output.
 
 use crate::classify::{classify_value, ValueClass};
-use crate::config::InferConfig;
+use crate::config::{
+    DictMixedPolicy, HeterogeneousListPolicy, IncompatibleScalarPolicy, InferConfig, MissingKeyPolicy,
+    NullPolicy, NumericPromotionPolicy, StringDatePolicy,
+};
 use crate::error::InferError;
 use crate::merge::{merge_type_specs, value_class_to_type_spec, FieldEvidence};
 use crate::serialize::schema_to_python_dict;
@@ -179,15 +182,101 @@ pub fn infer_schema_py(
     data: &Bound<'_, PyAny>,
     infer_string_numbers: bool,
     infer_string_literals: bool,
+    incompatible_scalar_policy: &str,
+    heterogeneous_list_policy: &str,
+    dict_mixed_policy: &str,
+    string_date_policy: &str,
+    numeric_promotion: &str,
+    missing_key_policy: &str,
+    null_policy: &str,
     sample_size: usize,
 ) -> PyResult<PyObject> {
     let config = InferConfig {
         infer_string_numbers,
         infer_string_literals,
+        incompatible_scalar_policy: parse_incompatible_scalar_policy(incompatible_scalar_policy)?,
+        heterogeneous_list_policy: parse_heterogeneous_list_policy(heterogeneous_list_policy)?,
+        dict_mixed_policy: parse_dict_mixed_policy(dict_mixed_policy)?,
+        string_date_policy: parse_string_date_policy(string_date_policy)?,
+        numeric_promotion: parse_numeric_promotion_policy(numeric_promotion)?,
+        missing_key_policy: parse_missing_key_policy(missing_key_policy)?,
+        null_policy: parse_null_policy(null_policy)?,
         sample_size,
         ..InferConfig::default()
     };
     let model = infer_schema_impl(py, data, &config)?;
     let value = schema_to_python_dict(&model);
     Ok(crate::value_to_python(py, &value)?)
+}
+
+fn parse_incompatible_scalar_policy(s: &str) -> Result<IncompatibleScalarPolicy, InferError> {
+    match s {
+        "any" => Ok(IncompatibleScalarPolicy::Any),
+        "union" => Ok(IncompatibleScalarPolicy::Union),
+        "error" => Ok(IncompatibleScalarPolicy::Error),
+        _ => Err(InferError::InvalidInput(
+            "incompatible_scalar_policy must be one of: any, union, error".to_string(),
+        )),
+    }
+}
+
+fn parse_heterogeneous_list_policy(s: &str) -> Result<HeterogeneousListPolicy, InferError> {
+    match s {
+        "any" => Ok(HeterogeneousListPolicy::Any),
+        "union" => Ok(HeterogeneousListPolicy::Union),
+        "error" => Ok(HeterogeneousListPolicy::Error),
+        _ => Err(InferError::InvalidInput(
+            "heterogeneous_list_policy must be one of: any, union, error".to_string(),
+        )),
+    }
+}
+
+fn parse_dict_mixed_policy(s: &str) -> Result<DictMixedPolicy, InferError> {
+    match s {
+        "any" => Ok(DictMixedPolicy::Any),
+        "union" => Ok(DictMixedPolicy::Union),
+        "error" => Ok(DictMixedPolicy::Error),
+        _ => Err(InferError::InvalidInput(
+            "dict_mixed_policy must be one of: any, union, error".to_string(),
+        )),
+    }
+}
+
+fn parse_string_date_policy(s: &str) -> Result<StringDatePolicy, InferError> {
+    match s {
+        "never" => Ok(StringDatePolicy::Never),
+        "iso_only" => Ok(StringDatePolicy::IsoOnly),
+        "aggressive" => Ok(StringDatePolicy::Aggressive),
+        _ => Err(InferError::InvalidInput(
+            "string_date_policy must be one of: never, iso_only, aggressive".to_string(),
+        )),
+    }
+}
+
+fn parse_numeric_promotion_policy(s: &str) -> Result<NumericPromotionPolicy, InferError> {
+    match s {
+        "promote" => Ok(NumericPromotionPolicy::Promote),
+        "strict" => Ok(NumericPromotionPolicy::Strict),
+        _ => Err(InferError::InvalidInput(
+            "numeric_promotion must be one of: promote, strict".to_string(),
+        )),
+    }
+}
+
+fn parse_missing_key_policy(s: &str) -> Result<MissingKeyPolicy, InferError> {
+    match s {
+        "optional" => Ok(MissingKeyPolicy::Optional),
+        _ => Err(InferError::InvalidInput(
+            "missing_key_policy must be one of: optional".to_string(),
+        )),
+    }
+}
+
+fn parse_null_policy(s: &str) -> Result<NullPolicy, InferError> {
+    match s {
+        "nullable" => Ok(NullPolicy::Nullable),
+        _ => Err(InferError::InvalidInput(
+            "null_policy must be one of: nullable".to_string(),
+        )),
+    }
 }

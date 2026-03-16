@@ -1,6 +1,6 @@
 //! Package errors for schema inference.
 
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::PyErr;
 use std::fmt;
 
@@ -26,6 +26,9 @@ impl std::error::Error for InferError {}
 
 impl From<InferError> for PyErr {
     fn from(e: InferError) -> PyErr {
-        PyValueError::new_err(e.to_string())
+        match e {
+            InferError::InvalidInput(msg) => PyTypeError::new_err(format!("invalid input: {}", msg)),
+            InferError::PolicyError(msg) => PyValueError::new_err(format!("policy error: {}", msg)),
+        }
     }
 }
