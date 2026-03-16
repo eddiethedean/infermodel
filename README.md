@@ -7,7 +7,7 @@ Infer a schema from `Iterable[Mapping[str, Any]]` (list of dicts, generators, et
 ## Features
 
 - **Rust core**: Performance-critical traversal, merge logic, and required/nullable tracking
-- **Python ergonomics**: Pydantic v2 model creation via `infer_model(...)`
+- **Python ergonomics**: Pydantic v2 model creation via `infer_model(...)` (including nested models)
 - **Number inference from strings (default)**: String columns that look like numbers are inferred as `int` or `float` (e.g. `"42"`, `"3.14"`). Set `infer_string_numbers=False` to keep all strings as `str`.
 - **Optional null/bool from strings**: Set `infer_string_literals=True` to treat `"null"`/`"true"`/`"false"`/`"yes"`/`"no"` as null or bool (for full CSV/JSON-style parsing).
 - **Numeric promotion**: int+float promotes to float; incompatible scalar mixes become `Any`
@@ -78,7 +78,7 @@ Model = infer_model(rows, model_name="User", config=InferConfig(infer_string_lit
   - **Null-like**: `"null"`, `"none"`, `"nil"` (case-insensitive) → treated as null (column is nullable).
   - **Boolean-like**: `"true"`, `"false"`, `"yes"`, `"no"` → `bool`.
   That mode is not round-trip compatible for those columns (the model expects parsed types).
-- **Native types**: Python `int`, `float`, `bool`, `None` are classified by type. List and dict values are currently treated as `Any`; nested dict → nested model inference is [planned for 1.0](ROADMAP.md). Date/datetime/time objects are recognized when present but emitted as `Any` for now.
+- **Native types**: Python `int`, `float`, `bool`, `None` are classified by type. Dict values are inferred as **nested models** (recursive `model` specs) and emitted as nested Pydantic models. List values are currently treated as `Any`. Date/datetime/time objects are recognized when present but emitted as `Any` for now.
 
 ## Required vs nullable
 
@@ -86,11 +86,10 @@ Model = infer_model(rows, model_name="User", config=InferConfig(infer_string_lit
 - **Optional**: field missing in at least one row.
 - **Nullable**: at least one row had explicit `None` for that field.
 
-These are independent: a field can be required and nullable, or optional and not nullable.
+These are independent: a field can be required and nullable, or optional and not nullable. The same rules apply inside **nested models**: nested fields that are missing in some observed nested dicts become optional, and nested fields that see `None` at least once become nullable.
 
 ## Limitations
 
-- **Nested dicts**: Currently inferred as `Any`; recursive nested model inference is [planned for 1.0](ROADMAP.md).
 - **Lists**: List values are inferred as `Any`; `list[T]` inference is planned for 1.1+.
 - **Dates**: Real `date`/`datetime`/`time` objects are detected but the emitted type is `Any`; proper types and string parsing are planned.
 

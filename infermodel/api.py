@@ -57,10 +57,14 @@ def infer_model(
     """
     Infer a schema from data and return a dynamic Pydantic model.
 
+    This is a convenience wrapper around ``infer_schema`` + ``model_from_schema``:
+    nested dict fields become nested Pydantic models; scalar and nullable/optional
+    behavior follow the same rules as the inferred schema.
+
     Args:
         data: Iterable of mappings (e.g. list of dicts or generator) to infer schema from.
         model_name: Name for the generated model class.
-        config: Optional inference config (sample_size limits how many items are used; default 10,000).
+        config: Optional inference config; controls string parsing, policies, and sample_size.
 
     Returns:
         A Pydantic model class (type) that can validate the inferred shape.

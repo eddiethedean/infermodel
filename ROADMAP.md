@@ -76,10 +76,10 @@ Additional M1 work completed:
 
 ### M2 — Documentation
 
-- [ ] **README**: Ensure README and pyproject match implementation (Iterable, sample_size, nested, config options) and Quick start / API / config sections are accurate
-- [ ] **Limitations**: One short section on what is not inferred in 1.0 (lists, dates) and how to handle them (manual schema or post-process)
-- [ ] **Changelog**: Add `CHANGELOG.md`; maintain from 0.1.0 onward (or link to GitHub Releases)
-- [ ] **API reference**: Either in README or via Sphinx/autodoc; at minimum, docstrings for public functions and `InferConfig` are accurate and complete
+- [x] **README**: Ensure README and pyproject match implementation (Iterable, sample_size, nested, config options) and Quick start / API / config sections are accurate
+- [x] **Limitations**: One short section on what is not inferred in 1.0 (lists, dates) and how to handle them (manual schema or post-process)
+- [x] **Changelog**: Add `CHANGELOG.md`; maintain from 0.1.0 onward (or link to GitHub Releases)
+- [x] **API reference**: Either in README or via Sphinx/autodoc; at minimum, docstrings for public functions and `InferConfig` are accurate and complete
 
 **Exit criterion**: A new user can install, run the quick start, and understand what the library does and does not do.
 
