@@ -9,8 +9,8 @@ Plan from current state to a production-ready 1.0.0 release.
 - **API**: `infer_schema(data, config=None)`, `infer_model(data, model_name=..., config=None)`, `model_from_schema(schema, model_name=...)`
 - **Input**: `Iterable[Mapping[str, Any]]`; inference capped at `config.sample_size` (default 10,000; 0 = no limit)
 - **Config**: `InferConfig(infer_string_numbers=True, infer_string_literals=False, sample_size=10_000)`
-- **Inference**: Flat models only (nested dicts currently → Any); scalar types (int, float, bool, str, Any); required/optional and nullable; int+float → float; string→number and optional string→null/bool
-- **Emission**: Schema dict → Pydantic v2 model via `emit_pydantic`
+- **Inference**: Flat + **nested dict** inference; scalar types (int, float, bool, str, Any); required/optional and nullable; int+float → float; string→number and optional string→null/bool; dict+non-dict conflicts → Any (default policy)
+- **Emission**: Schema dict → Pydantic v2 model via `emit_pydantic`, including nested models
 - **CI**: Ruff, mypy, cargo fmt, clippy, audit, pytest on Python 3.9–3.12 (Ubuntu, macOS, Windows)
 - **Release**: Tag `v*` triggers PyPI publish (manylinux, macOS, Windows); see [RELEASING.md](RELEASING.md)
 
@@ -48,13 +48,15 @@ Plan from current state to a production-ready 1.0.0 release.
 
 ### M0 — Nested struct support (required for 1.0)
 
-- [ ] **Rust inference**: When a field value is a dict, recursively infer a nested `ModelSpec` (same rules: required/optional, nullable, scalar merge). Use `TypeSpec::Model(nested)` instead of treating dict as `Any`. Merge multiple dict observations by merging nested model specs (field-by-field).
-- [ ] **Rust merge**: Implement merge for `TypeSpec::Model` (e.g. merge two ModelSpecs by merging each field’s type; dict + non-dict → `Any` per existing policy).
-- [ ] **Schema output**: Ensure serialization already emits nested `{"type": "model", "fields": {...}}` for nested models (current `serialize.rs` already supports this).
-- [ ] **Python emission**: Update `emit_pydantic` and `typing_utils` so that a field with `type: { "type": "model", "fields": ... }` is turned into a nested Pydantic model (build via `model_from_schema` or equivalent) and used as the field annotation, not `Any`.
-- [ ] **Tests**: Add tests for one-level and multi-level nested dicts; optional/nullable nested; mixed dict + scalar (→ Any or per-policy).
+- [x] **Rust inference**: When a field value is a dict, recursively infer a nested `ModelSpec`. Use `TypeSpec::Model(nested)` instead of treating dict as `Any`. Merge multiple dict observations by merging nested model specs (field-by-field).
+- [x] **Rust merge**: Implement merge for `TypeSpec::Model` (merge two ModelSpecs by merging each field’s type; dict + non-dict → `Any` per existing policy).
+- [x] **Schema output**: Ensure serialization emits nested `{"type": "model", "fields": {...}}` for nested models.
+- [x] **Python emission**: Emit nested Pydantic models for fields with `type: { "type": "model", "fields": ... }` (built recursively via `model_from_schema`) and use them as annotations (not `Any`).
+- [x] **Tests**: Add tests for one-level and multi-level nested dicts; optional/nullable nested; mixed dict + scalar.
 
 **Exit criterion**: `infer_schema` / `infer_model` support nested dicts end-to-end; nested Pydantic models validate correctly.
+
+**Known limitation (to address in M1)**: nested “required” semantics are currently conservative when merging nested dicts across rows; a nested key missing from some observed nested dicts may still be marked `required=True` in the merged nested model. Nullability is tracked correctly when `None` is observed.
 
 ---
 
