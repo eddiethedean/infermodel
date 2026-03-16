@@ -57,6 +57,32 @@ def test_infer_model_flat():
     assert rec.name == "Alice"
 
 
+def test_infer_schema_nested_single_level():
+    data = [
+        {"id": 1, "user": {"name": "Alice", "age": 30}},
+        {"id": 2, "user": {"name": "Bob", "age": 25}},
+    ]
+    schema = infer_schema(data)
+    assert schema["type"] == "model"
+    assert "user" in schema["fields"]
+    user_field = schema["fields"]["user"]
+    assert isinstance(user_field["type"], dict)
+    assert user_field["type"]["type"] == "model"
+    assert set(user_field["type"]["fields"].keys()) == {"name", "age"}
+
+
+def test_infer_model_nested_single_level():
+    data = [
+        {"id": 1, "user": {"name": "Alice", "age": 30}},
+        {"id": 2, "user": {"name": "Bob", "age": 25}},
+    ]
+    Model = infer_model(data, model_name="Record")
+    assert "user" in Model.model_fields
+    inst = Model(id=3, user={"name": "Carol", "age": 22})
+    assert inst.user.name == "Carol"
+    assert inst.user.age == 22
+
+
 def test_model_from_schema():
     schema = {
         "type": "model",

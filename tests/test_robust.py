@@ -271,3 +271,40 @@ def test_infer_schema_sparse_fields() -> None:
     schema = infer_schema(data)
     assert schema["fields"]["a"]["required"] is False
     assert schema["fields"]["b"]["required"] is False
+
+
+def test_infer_schema_optional_nested_dict() -> None:
+    """Nested dict field present in some rows only -> optional nested field."""
+    data = [
+        {"id": 1, "meta": {"flag": True}},
+        {"id": 2},
+    ]
+    schema = infer_schema(data)
+    meta = schema["fields"]["meta"]
+    assert meta["required"] is False
+    assert isinstance(meta["type"], dict)
+    assert meta["type"]["type"] == "model"
+    assert set(meta["type"]["fields"].keys()) == {"flag"}
+
+
+def test_infer_schema_nullable_nested_dict() -> None:
+    """Nested dict field that is sometimes None -> nullable nested field."""
+    data = [
+        {"id": 1, "meta": {"flag": True}},
+        {"id": 2, "meta": None},
+    ]
+    schema = infer_schema(data)
+    meta = schema["fields"]["meta"]
+    assert meta["nullable"] is True
+
+
+def test_inferred_nested_model_validates() -> None:
+    """Inferred nested model enforces types in nested structure."""
+    data = [
+        {"id": 1, "user": {"name": "Alice", "age": 30}},
+        {"id": 2, "user": {"name": "Bob", "age": 25}},
+    ]
+    Model = infer_model(data, model_name="UserWithNested")
+    Model(id=3, user={"name": "Carol", "age": 22})
+    with pytest.raises(ValidationError):
+        Model(id=4, user={"name": "Dave", "age": "not_an_int"})  # type: ignore[arg-type]

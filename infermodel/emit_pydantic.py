@@ -24,7 +24,17 @@ def model_from_schema(
     model_fields: dict[str, tuple[Any, Any]] = {}
 
     for name, field_spec in fields_spec.items():
-        ann = schema_type_to_annotation(field_spec)
+        type_info = field_spec.get("type")
+        # Nested model: build a concrete Pydantic model for this field.
+        if isinstance(type_info, dict) and type_info.get("type") == "model":
+            nested_schema: dict[str, Any] = {
+                "type": "model",
+                "fields": type_info.get("fields") or {},
+            }
+            nested_model_name = f"{model_name}_{name.capitalize()}"
+            ann = model_from_schema(nested_schema, model_name=nested_model_name)
+        else:
+            ann = schema_type_to_annotation(field_spec)
         required = field_spec.get("required", True)
         nullable = field_spec.get("nullable", False)
 
