@@ -70,6 +70,8 @@ Model = infer(
 - **`infer(data, *, config=None, model_name="InferredModel", return_model=True, return_schema=True, return_diagnostics=False)`**  
   Returns an `InferResult` with `schema` (typed), `schema_dict` (stable dict), `model` (Pydantic model or None), and `diagnostics` (dict or None).
 
+- Diagnostics keys and semantics: see [`docs/diagnostics.md`](docs/diagnostics.md).
+
 - **`InferConfig`**  
   **`infer_string_numbers=True`** (default): infer int/float from string content. **`infer_string_literals=False`** (default): set to `True` to infer null/bool from `"null"`/`"true"`/`"false"`/`"yes"`/`"no"`. **`sample_size=10_000`**: max number of items to use for inference (0 = no limit); use a larger value or 0 for very large iterables when you want to sample more or all rows.
   Presets: `InferConfig.for_csv()`, `InferConfig.permissive()`, `InferConfig.strict()`.
@@ -93,6 +95,8 @@ pip install "infermodel[firestore]"
 pip install "infermodel[redis]"
 pip install "infermodel[couchdb]"
 ```
+
+Details (input expectations, row shapes, streaming behavior): see [`docs/adapters.md`](docs/adapters.md).
 
 Usage:
 

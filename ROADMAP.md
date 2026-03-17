@@ -1,226 +1,137 @@
-# Roadmap: 0.1.0 → 1.0.0
+# infermodel roadmap
 
-Plan from current state to a production-ready 1.0.0 release.
+This roadmap is intentionally **product-oriented**: it describes what a user can do, what guarantees we provide, and the minimal set of work required to ship a trustworthy 1.0.
 
----
-
-## Current state (0.1.0, Alpha)
-
-- **API**: `infer_schema(data, config=None)`, `infer_model(data, model_name=..., config=None)`, `model_from_schema(schema, model_name=...)`
-- **Input**: `Iterable[Mapping[str, Any]]`; inference capped at `config.sample_size` (default 10,000; 0 = no limit)
-- **Config**: `InferConfig(infer_string_numbers=True, infer_string_literals=False, sample_size=10_000)`
-- **Inference**: Flat + **nested dict** inference; scalar types (int, float, bool, str, Any); required/optional and nullable; int+float → float; string→number and optional string→null/bool; dict+non-dict conflicts → Any (default policy)
-- **Emission**: Schema dict → Pydantic v2 model via `emit_pydantic`, including nested models
-- **CI**: Ruff, mypy, cargo fmt, clippy, audit, pytest on Python 3.9–3.12 (Ubuntu, macOS, Windows)
-- **Release**: Tag `v*` triggers PyPI publish (manylinux, macOS, Windows); see [RELEASING.md](RELEASING.md)
+The project already has a lot of surface area (typed schema, diagnostics, adapters, streaming helpers). The goal from here is not to add more features—it’s to make what exists **reliable, predictable, and clearly documented**.
 
 ---
 
-## 1.0.0 scope (production release)
+## North Star (what “infermodel” should feel like)
 
-1.0.0 is **stable, documented, and safe to rely on** for the current feature set. It does **not** require every possible feature from the original plan (see [plandoc.md](plandoc.md)); it requires:
+Given any source that can produce rows as `Mapping[str, Any]`, a user should be able to:
 
-- **Stable public API** (no breaking changes planned for 1.x after 1.0)
-- **Clear documentation** (README, API behavior, limits, upgrade path)
-- **Packaging and release hygiene** (version, classifiers, changelog)
-- **No known blocking bugs** for typical flat and nested use cases
+- **Infer once** from a representative sample
+- **Inspect** a stable schema (`schema_version: 1`)
+- **Validate/clean** a stream of rows into Pydantic models
+- **Understand decisions** via diagnostics
+- **Adopt incrementally** via adapters and schema merge/diff tools
 
-**Explicitly in scope for 1.0**
-
-- Flat schema inference and Pydantic emission as implemented today
-- **Nested dict → nested model inference** (dict values become nested Pydantic models; recursive inference and emission)
-- Iterable + `sample_size` behavior
-- `infer_string_numbers` / `infer_string_literals` behavior
-- Required vs optional vs nullable semantics
-
-**Explicitly out of scope for 1.0** (candidates for 1.1+)
-
-- List type inference (e.g. `list[int]`, `list[Model]`)
-- Date/datetime/time inference
-- Additional policy options (beyond current config)
-- Performance benchmarks and published numbers
+The library should be boring in production: stable API, consistent contracts, strong tests, and clear failure modes.
 
 ---
 
-## Milestones
+## Public surface (1.0 contract)
 
-**Order and dependencies**: M0 → M1 → M2 → M3 (sequential). M4 is optional and can run in parallel with M1–M2 so tests and CI are solid before release.
+### Primary entrypoint
 
-### M0 — Nested struct support (required for 1.0)
+- `infer(data, *, config=None, model_name="InferredModel", return_model=True, return_schema=True, return_diagnostics=False) -> InferResult`
+  - **Guarantee**: `InferResult.schema_dict` is JSON-serializable and includes `schema_version: 1`.
 
-- [x] **Rust inference**: When a field value is a dict, recursively infer a nested `ModelSpec`. Use `TypeSpec::Model(nested)` instead of treating dict as `Any`. Merge multiple dict observations by merging nested model specs (field-by-field).
-- [x] **Rust merge**: Implement merge for `TypeSpec::Model` (merge two ModelSpecs by merging each field’s type; dict + non-dict → `Any` per existing policy).
-- [x] **Schema output**: Ensure serialization emits nested `{"type": "model", "fields": {...}}` for nested models.
-- [x] **Python emission**: Emit nested Pydantic models for fields with `type: { "type": "model", "fields": ... }` (built recursively via `model_from_schema`) and use them as annotations (not `Any`).
-- [x] **Tests**: Add tests for one-level and multi-level nested dicts; optional/nullable nested; mixed dict + scalar.
+### Streaming validation
 
-**Exit criterion**: `infer_schema` / `infer_model` support nested dicts end-to-end; nested Pydantic models validate correctly.
+- `infer_iter(...) -> (InferResult, iterator[Model])`
+- `infer_iter_rows(...) -> (InferResult, iterator[(row, model_or_none, error_or_none)])`
 
----
----
+### Schema + tools
 
-### M1 — Stability and API lock (pre-1.0)
+- Typed schema objects + stable dict contract
+- `format_schema`, `print_schema`, `schema_diff`, `schema_merge`
 
-- [x] **API review**: Freeze public surface (e.g. `infer_schema`, `infer_model`, `InferConfig`, `model_from_schema`); document what is stable vs internal
-- [x] **Edge-case tests**: Empty iterable, single row, all-None column, very large `sample_size`; document expected behavior
-- [x] **Error contract**: Document which errors (ValueError, TypeError, etc.) can be raised and when; add minimal tests for error paths
-- [ ] **Deprecations**: If any names or signatures might change, introduce deprecation path before 1.0
+### Adapters (optional extras)
 
-Additional M1 work completed:
+Thin helpers that yield rows and delegate to `infer(...)`:
 
-- [x] **Nested required semantics**: Nested keys missing from some observed nested dicts are treated as optional (`required=False`), matching top-level semantics.
-
-**Exit criterion**: Team agrees the current API is 1.0-ready and no breaking change is planned for 1.0.
+- Files/formats: CSV, JSON, NDJSON, Pandas, Parquet
+- SQL: SQLAlchemy
+- NoSQL: MongoDB, DynamoDB, Firestore, RedisJSON, CouchDB
 
 ---
 
-### M2 — Documentation
+## What 1.0.0 means
 
-- [x] **README**: Ensure README and pyproject match implementation (Iterable, sample_size, nested, config options) and Quick start / API / config sections are accurate
-- [x] **Limitations**: One short section on what is not inferred in 1.0 (lists, dates) and how to handle them (manual schema or post-process)
-- [x] **Changelog**: Add `CHANGELOG.md`; maintain from 0.1.0 onward (or link to GitHub Releases)
-- [x] **API reference**: Either in README or via Sphinx/autodoc; at minimum, docstrings for public functions and `InferConfig` are accurate and complete
+**1.0.0 is not “feature complete”.** It is:
 
-**Exit criterion**: A new user can install, run the quick start, and understand what the library does and does not do.
+- A **stable contract**: API signatures, schema dict shape, and error semantics
+- **Predictable behavior** on typical real-world flat/nested data
+- **Portable packaging**: wheels across supported platforms
+- **Strong tests** + coverage gate + CI confidence
+- Documentation that makes onboarding easy
 
----
+### Explicitly in scope for 1.0
 
-### M3 — Packaging and release hygiene
+- Flat + nested dict inference
+- Required/optional/nullable semantics
+- String parsing toggles (`infer_string_numbers`, `infer_string_literals`)
+- Diagnostics output (stable keys and semantics)
+- Streaming validation helpers
+- Adapter layer + optional dependency extras
 
-- [ ] **Version and classifiers**: Set version to `1.0.0` for release; update classifiers (e.g. `Development Status :: 5 - Production/Stable`) when cutting 1.0
-- [ ] **RELEASING.md**: Confirm steps for tagging and PyPI; ensure `PYPI_API_TOKEN` and any secrets are documented for maintainers
-- [ ] **Git tag and release**: Tag `v1.0.0`, push, verify workflow publishes to PyPI; create GitHub Release with short release notes
-- [ ] **Post-release**: After 1.0.0 is published, branch or tag policy for 1.x patches (e.g. maintain `1.0.x` for security/fixes)
+### Explicitly out of scope for 1.0 (1.1+)
 
-**Exit criterion**: 1.0.0 is on PyPI and installable with `pip install infermodel==1.0.0`; release is documented.
-
----
-
-### M4 — Optional but recommended before 1.0
-
-Can be done in parallel with M1–M2. Ensures quality and compatibility before tagging 1.0.
-
-- [ ] **Rust tests**: Add or expand Rust unit tests so that core inference (classify, merge, required/nullable, nested) is covered without Python
-- [ ] **Security**: Run `cargo audit` in CI (already in place); address any advisories before 1.0
-- [ ] **Python 3.9**: Keep 3.9 in CI matrix; test on 3.9 explicitly so we do not accidentally drop support at 1.0
-
-**Exit criterion**: No known blockers; CI green on all supported platforms and Python versions.
+- List element inference (`list[T]`)
+- Date/datetime/time inference and parsing
+- Benchmark suite + published perf numbers
 
 ---
 
-## After 1.0.0
+## Milestones (big picture)
 
-- **1.1.x**: List type inference, date/datetime/time support (see plandoc phases 4, 7)
-- **1.x**: Policy options and tuning (e.g. more merge policies) as needed
-- **Changelog**: Maintain CHANGELOG or Releases for every minor/patch release
+### M0 — Foundation (done)
 
-See **Future ideas** below for a detailed backlog (Pydantic alignment, outliers, ergonomics, etc.).
+- [x] Core inference works for flat + nested
+- [x] Typed schema v1 exists and round-trips
+- [x] Pydantic emission works for nested models
 
----
+### M1 — Contracts (done)
 
-## Future ideas (post-1.0)
+- [x] Public API consolidated around `infer(...)`
+- [x] Clear error contract (TypeError vs ValueError) and policy behavior
+- [x] High branch coverage gate in CI
 
-Backlog of features that fit the package; not committed to a release. Prioritize based on demand.
+### M2 — Production hardening (next)
 
-### Inference & types
+Focus: make behavior rock-solid across adapters and real inputs.
 
-- **List inference** — Infer `list[int]`, `list[str]`, `list[Model]`; empty list → `list[Any]` or configurable. (Rust has `TypeSpec::List`; wire classify + merge.)
-- **Date / datetime / time** — Infer from real Python `date`/`datetime`/`time`; optional opt-in string→date parsing (e.g. ISO).
-- **Union inference** — When a field mixes incompatible types (e.g. int | str), emit `Union[...]` instead of `Any`, or make it policy (union vs any vs error). (Rust has `TypeSpec::Union`; wire merge.)
-- **Decimal** — Recognize `Decimal`; optional string→Decimal for money/scientific columns.
-- **Literal / enum inference** — If a string field has a small fixed set of values, infer `Literal["a","b","c"]` or suggest Enum.
-- **UUID** — Treat `uuid.UUID` or UUID-like strings as a dedicated type or `str` with validator.
-- **Outliers tolerance (optional)** — Config option e.g. `outliers=0.1` (10%): when inferring a field’s type, allow up to that fraction of values to “not match” the chosen type; infer the **majority** type and treat the rest as outliers (ignored for inference). Example: column values `'1','2',…,'9','Q'` with `outliers=0.1` → infer `int` (9/10 match). **Must be optional**: it deliberately breaks the normal guarantee that every sampled row validates against the inferred model—rows with outlier values will fail validation. Use for noisy data where you want a “clean” schema and are willing to reject bad rows. Implementation: per-field type counts; if minority count ≤ outliers × total, use majority type; else keep current merge (Any/union).
+- **Adapter reliability**:
+  - [x] Document each adapter’s row shape expectations (e.g. DynamoDB resource vs low-level client) — see [`docs/adapters.md`](docs/adapters.md)
+  - [x] Add “real backend smoke tests” (Dockerized Mongo/Redis; SQLite via SQLAlchemy) and a short guide to run them locally — see [`smoke/README.md`](smoke/README.md)
+- **Diagnostics contract**:
+  - [x] Document fields and semantics (especially `maybe_truncated` and per-field counts) — see [`docs/diagnostics.md`](docs/diagnostics.md)
+  - [x] Add tests that freeze the diagnostics shape (stable keys + semantics)
+- **Edge-case policy tests**:
+  - [ ] Ensure policies behave consistently across nested models and unions
 
-### Schema & emission
+Exit: no known correctness bugs from real-world trial runs.
 
-- **JSON Schema export** — From inferred schema → JSON Schema for OpenAPI, form generators, other languages.
-- **OpenAPI-friendly output** — Ensure inferred models give good `model_json_schema()` or provide a helper for OpenAPI-ready schema.
-- **Schema diff / evolution** — Compare two inferred schemas (e.g. old vs new sample), report added/removed/changed types for drift checks.
-- **Minimal vs strict preset** — Option to infer “minimal” (e.g. more optional) vs “strict” (required when present in all rows) for different use cases.
-- **Force all fields optional or required** — Optional config (e.g. `require_all=True` or `optional_all=True`) to override inferred required/optional: emit every field as required (no default) or every field as optional (default `None`), regardless of presence in the sample. Useful for strict validation or permissive ingestion without changing inference logic.
+### M3 — 1.0 packaging + release
 
-### Performance & scale
+- [ ] Set version to `1.0.0`
+- [ ] Update classifiers to Production/Stable
+- [ ] Tag + publish via existing GitHub Actions
+- [ ] Create a GitHub Release with concise notes and upgrade guidance
 
-- **Sampling strategies** — Besides “first N”, support random sample or stratified (e.g. by a key) for more representative inference.
-- **Streaming / chunked inference** — For huge iterables, merge schema from chunks so we don’t materialize the full sample at once.
-- **Benchmarks** — Small benchmark suite (e.g. `benches/`) vs pure-Python or naive inference; optional note in README.
-
-### Ergonomics
-
-- **Named presets** — e.g. `InferConfig.pragmatic()`, `InferConfig.strict()`, `InferConfig.for_csv()` that set `infer_string_numbers`, `infer_string_literals`, etc. in one call.
-- **Field rename / exclude** — Optional mapping or blocklist so the emitted model has different names or drops sensitive columns.
-- **Validation-only mode** — “Does this data match this schema?” without building a new model; reuse inferred schema + validation path.
-- **Pretty-print schema** — `infermodel.print_schema(schema)` or similar for quick terminal inspection.
-
-### Integrations
-
-- **TypedDict / Protocol emission** — Option to emit `TypedDict` or `Protocol` instead of (or alongside) Pydantic model for static typing without runtime validation.
-
-### Adapter layer (data-source agnostic, format helpers)
-
-**Principle**: Core stays format-agnostic (`Iterable[Mapping[str, Any]]` only). Adapters are thin helpers that convert a format-specific input → iterable of dicts → `infer_schema` / `infer_model`. Optional dependencies per adapter keep the base install minimal; streaming where possible (yield rows, respect `sample_size`).
-
-- **JSON** — `infer_schema_from_json(path_or_file, config=...)` / `infer_model_from_json(...)`: parse JSON array (or stream) → iterable of dicts → core. Support single JSON array and optionally NDJSON (newline-delimited) for streaming.
-- **CSV** — `infer_schema_from_csv(path_or_file, config=...)` / `infer_model_from_csv(...)`: e.g. `csv.DictReader` → iterable of dicts → core. Stdlib only; no extra deps. Option for delimiter, encoding.
-- **NDJSON / JSON Lines** — Can be part of JSON adapter (detect or flag): one JSON object per line → yield dicts → core; good for large files.
-- **Pandas** — `infer_schema_from_dataframe(df, config=...)` / `infer_model_from_dataframe(df, ...)`: `df.to_dict('records')` or chunked iteration → iterable of dicts → core. Optional extra `[pandas]`.
-- **Parquet** — `infer_schema_from_parquet(path_or_file, config=...)` / `infer_model_from_parquet(...)`: read via pyarrow or pandas in chunks → iterable of dicts → core. Optional extra `[parquet]` (pyarrow or pandas).
-- **Extras in pyproject** — e.g. `infermodel[csv]` (stdlib-only, no new deps), `infermodel[pandas]`, `infermodel[parquet]` so users only pull what they need; base package remains dependency-light.
-
-**Exit criterion**: Every common format has a one-liner to “infer from this source” without the core knowing about the format; all adapters document that they pass through `config` (including `sample_size`).
-
-### Pydantic alignment
-
-Features to align infermodel’s inferred types and emitted models with Pydantic’s supported types and APIs. Reference: [Pydantic v2 types](https://docs.pydantic.dev/2.9/usage/types/types/), [standard library types](https://docs.pydantic.dev/2.9/api/standard_library_types/), [Field API](https://docs.pydantic.dev/2.9/api/fields/).
-
-#### Types Pydantic supports that we should infer/emit
-
-- **date, datetime, time** — We have `TypeSpec::Date/DateTime/Time` and classify Python `date`/`datetime`/`time`; emit `datetime.date`, `datetime.datetime`, `datetime.time` in annotations (not `Any`). Optional: opt-in string→date/datetime parsing (ISO, Unix timestamp).
-- **timedelta** — Classify and emit `datetime.timedelta`; Pydantic accepts str (e.g. `'1d,01:02:03'`) and ISO duration.
-- **Decimal** — Classify `Decimal`; emit `Decimal`; optional string→Decimal for numeric-looking strings.
-- **UUID** — Classify `uuid.UUID` or UUID-like strings (opt-in); emit `UUID`; Pydantic accepts str/bytes and validates.
-- **bytes** — Classify and emit `bytes`; Pydantic accepts str (encode), bytearray, int/float/Decimal (str(v).encode()).
-- **Literal** — When a string field has a small, fixed set of observed values, emit `Literal["a","b","c"]` instead of `str`; improves validation and JSON schema.
-- **Enum** — When values are a small fixed set (str or int), optionally emit a dynamic `str, Enum` or `IntEnum` subclass; Pydantic validates membership.
-- **list, tuple, set** — Infer and emit `list[T]`, `tuple[T,...]`, `set[T]`; we already have `TypeSpec::List`; add tuple/set classification if needed.
-- **Dict[str, V]** — For dict values we infer nested model; Pydantic also supports `Dict[str, int]` etc.; optional emit for “all values same type” dicts.
-- **pathlib.Path** — Classify and emit `Path` when values are path-like (or opt-in).
-- **Strict types** — Config option to emit `StrictInt`, `StrictFloat`, `StrictStr`, `StrictBool` so Pydantic does not coerce (e.g. no str→int); matches “strict mode” use cases.
-
-#### Field() metadata we could infer and pass through
-
-- **description** — Optional per-field description (e.g. from column name, or empty); pass to `Field(description=...)` when building model.
-- **title** — Human-readable title; default to field name; `Field(title=...)`.
-- **min_length / max_length** — For str (and list): compute from observed lengths; emit `Field(min_length=..., max_length=...)` or `Annotated[str, Len(min_length=..., max_length=...)]` (annotated-types).
-- **ge / le / gt / lt** — For int/float: compute from observed min/max; emit `Field(ge=..., le=...)` or `Annotated[int, Gt(0)]` etc.; improves validation and JSON schema.
-- **multiple_of** — If all observed numbers are multiples of a divisor (e.g. 0.01 for currency), emit `Field(multiple_of=...)`.
-- **pattern** — Only if we add regex detection (advanced); `Field(pattern=...)` for str.
-- **examples** — Sample values from the data; `Field(examples=[...])` for docs/OpenAPI.
-- **alias** — When emitting, support a name→alias map so `Field(alias=...)` or `validation_alias` is set (e.g. camelCase from API).
-
-#### Model-level and schema behavior
-
-- **model_config** — Option to emit `model_config = ConfigDict(strict=True)` or `extra='forbid'` etc. via preset (e.g. `InferConfig.strict()` → strict model).
-- **JSON Schema / OpenAPI** — Emitted models already have `model_json_schema()`; ensure nested models, Literal, and Field constraints produce correct JSON schema; optional helper `infermodel.schema_to_json_schema(schema)` for the raw inferred schema.
-- **Serialization** — Ensure emitted types round-trip with `model_dump(mode='json')` (date/datetime/time/Decimal/UUID → JSON-friendly form per Pydantic behavior).
-- **Discriminated union** — If we infer a union of nested models with a common “tag” field, consider emitting `Field(discriminator='tag')` for efficient validation (advanced).
-
-#### Constrained types (Pydantic / annotated-types)
-
-- **conint, confloat, condecimal** — Instead of plain int/float/Decimal, emit `Annotated[int, Field(ge=..., le=...)]` or use `annotated_types` (Gt, Ge, Lt, Le, Len) so Pydantic and JSON schema get constraints.
-- **constr** — For str with min/max length or pattern, emit `Annotated[str, Field(min_length=..., max_length=..., pattern=...)]` or constr equivalent.
+Exit: `pip install infermodel==1.0.0` works everywhere in CI matrix.
 
 ---
 
-## Summary
+## Post‑1.0 direction
 
-| Milestone | Focus | When |
-|-----------|--------|------|
-| **M0** | Nested struct inference + Pydantic emission (required for 1.0) | First |
-| **M1** | API stability, edge cases, errors | After M0 |
-| **M2** | Docs, limitations, changelog | After M1 |
-| **M3** | Version 1.0.0, PyPI publish, release notes | After M2 |
-| **M4** | Tests and CI polish (optional, recommended before 1.0) | In parallel with M1–M2 |
+### 1.1 — Better types
 
-**Target**: 1.0.0 = production-ready for **flat and nested** schema inference and Pydantic emission, with clear docs and a stable API. List/date features can follow in 1.1+.
+- List element inference (`list[T]`, `list[Model]`)
+- Date/datetime/time emission (and optional string parsing)
+- Optional: emit unions instead of `any` in more cases
+
+### 1.x — Ecosystem & ergonomics
+
+- JSON Schema / OpenAPI helpers
+- Schema drift tooling (diff reports, compatibility checks)
+- More presets and stricter model configs
+
+---
+
+## Quality bar
+
+- **Branch coverage**: keep CI gate at **≥97%** (raise over time if practical)
+- **CI green** across Python 3.9–3.12 and OS matrix
+- **No silent contract changes**: any schema dict changes require a version bump (e.g. `schema_version=2`)
