@@ -36,6 +36,16 @@ dev = [
     "pytest>=7.0",
     "hypothesis>=6.0",
 ]
+pandas = [
+    "pandas>=2.2",
+]
+parquet = [
+    "pyarrow>=15.0",
+]
+adapters = [
+    "pandas>=2.2",
+    "pyarrow>=15.0",
+]
 
 [tool.maturin]
 module-name = "infermodel._infermodel"

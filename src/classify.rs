@@ -7,17 +7,26 @@ use std::fmt;
 /// For string values, infer type from content based on flags.
 /// When infer_string_literals: null-like, boolean-like.
 /// When infer_string_numbers: int then float.
-fn try_classify_string_content(s: &str, infer_string_numbers: bool, infer_string_literals: bool) -> ValueClass {
+fn try_classify_string_content(
+    s: &str,
+    infer_string_numbers: bool,
+    infer_string_literals: bool,
+) -> ValueClass {
     let s = s.trim();
     if s.is_empty() {
         return ValueClass::Str;
     }
     if infer_string_literals {
-        if s.eq_ignore_ascii_case("null") || s.eq_ignore_ascii_case("none") || s.eq_ignore_ascii_case("nil") {
+        if s.eq_ignore_ascii_case("null")
+            || s.eq_ignore_ascii_case("none")
+            || s.eq_ignore_ascii_case("nil")
+        {
             return ValueClass::None;
         }
-        if s.eq_ignore_ascii_case("true") || s.eq_ignore_ascii_case("false")
-            || s.eq_ignore_ascii_case("yes") || s.eq_ignore_ascii_case("no")
+        if s.eq_ignore_ascii_case("true")
+            || s.eq_ignore_ascii_case("false")
+            || s.eq_ignore_ascii_case("yes")
+            || s.eq_ignore_ascii_case("no")
         {
             return ValueClass::Bool;
         }
@@ -90,7 +99,11 @@ pub fn classify_value(
     if value.is_instance_of::<PyUnicode>() {
         if infer_string_numbers || infer_string_literals {
             if let Ok(s) = value.extract::<String>() {
-                return Ok(try_classify_string_content(&s, infer_string_numbers, infer_string_literals));
+                return Ok(try_classify_string_content(
+                    &s,
+                    infer_string_numbers,
+                    infer_string_literals,
+                ));
             }
         }
         return Ok(ValueClass::Str);
@@ -106,17 +119,29 @@ pub fn classify_value(
     if let (Ok(builtins), Ok(module)) = (py.import_bound("builtins"), py.import_bound("datetime")) {
         if let Ok(isinstance) = builtins.getattr("isinstance") {
             if let Ok(cls) = module.getattr("date") {
-                if isinstance.call1((value, cls)).and_then(|r| r.extract::<bool>()).unwrap_or(false) {
+                if isinstance
+                    .call1((value, cls))
+                    .and_then(|r| r.extract::<bool>())
+                    .unwrap_or(false)
+                {
                     return Ok(ValueClass::Date);
                 }
             }
             if let Ok(cls) = module.getattr("datetime") {
-                if isinstance.call1((value, cls)).and_then(|r| r.extract::<bool>()).unwrap_or(false) {
+                if isinstance
+                    .call1((value, cls))
+                    .and_then(|r| r.extract::<bool>())
+                    .unwrap_or(false)
+                {
                     return Ok(ValueClass::DateTime);
                 }
             }
             if let Ok(cls) = module.getattr("time") {
-                if isinstance.call1((value, cls)).and_then(|r| r.extract::<bool>()).unwrap_or(false) {
+                if isinstance
+                    .call1((value, cls))
+                    .and_then(|r| r.extract::<bool>())
+                    .unwrap_or(false)
+                {
                     return Ok(ValueClass::Time);
                 }
             }

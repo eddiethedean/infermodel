@@ -1,27 +1,36 @@
-"""Build Python type annotations from schema spec."""
+"""Build Python type annotations from typed schema specs."""
 
 from __future__ import annotations
 
 import typing
 from typing import Any
 
-if typing.TYPE_CHECKING:
-    pass
+from infermodel.schema import (
+    ListTypeSpec,
+    ModelTypeSpec,
+    ScalarTypeSpec,
+    TypeSpec,
+    UnionTypeSpec,
+)
 
 
-def schema_type_to_annotation(field_spec: dict[str, Any]) -> Any:
-    """
-    Convert a field spec dict (type, required, nullable) into a Python type annotation.
-
-    Handles scalars (str, int, float, bool, date, datetime, time, any),
-    list (with item type), and model (nested).
-    """
-    type_info = field_spec.get("type")
-
-    if isinstance(type_info, str):
-        return _scalar_to_annotation(type_info)
-    if isinstance(type_info, dict):
-        return _compound_to_annotation(type_info)
+def type_spec_to_annotation(spec: TypeSpec) -> Any:
+    """Convert a TypeSpec into a Python type annotation."""
+    if isinstance(spec, ScalarTypeSpec):
+        return _scalar_to_annotation(spec.tag)
+    if isinstance(spec, ListTypeSpec):
+        item_ann = type_spec_to_annotation(spec.item)
+        return list[item_ann]  # type: ignore[valid-type]
+    if isinstance(spec, UnionTypeSpec):
+        if not spec.variants:
+            return Any
+        anns = [type_spec_to_annotation(v) for v in spec.variants]
+        if len(anns) == 1:
+            return anns[0]
+        return typing.Union[tuple(anns)]  # type: ignore[valid-type]
+    if isinstance(spec, ModelTypeSpec):
+        # Nested models are built dynamically in emit_pydantic.
+        return typing.Any
     return Any
 
 
@@ -37,35 +46,3 @@ def _scalar_to_annotation(tag: str) -> Any:
         "time": typing.Any,  # datetime.time
     }
     return mapping.get(tag, Any)
-
-
-def _compound_to_annotation(type_info: dict[str, Any]) -> Any:
-    kind = type_info.get("type")
-    if kind == "list":
-        item = type_info.get("item")
-        if isinstance(item, str):
-            item_ann = _scalar_to_annotation(item)
-        elif isinstance(item, dict):
-            item_ann = _compound_to_annotation(item)
-        else:
-            item_ann = Any
-        return list[item_ann]  # type: ignore[valid-type]
-    if kind == "model":
-        # Nested model: we build dynamically in emit_pydantic
-        return typing.Any  # Placeholder; actual nested model built there
-    if kind == "union":
-        variants = type_info.get("variants", [])
-        if not variants:
-            return Any
-        anns = []
-        for v in variants:
-            if isinstance(v, str):
-                anns.append(_scalar_to_annotation(v))
-            elif isinstance(v, dict):
-                anns.append(_compound_to_annotation(v))
-            else:
-                anns.append(Any)
-        if len(anns) == 1:
-            return anns[0]
-        return typing.Union[tuple(anns)]  # type: ignore[valid-type]
-    return Any

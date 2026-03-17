@@ -81,9 +81,43 @@ fn infer_schema(
     )
 }
 
+/// Infer a schema and return diagnostics/evidence in addition to the schema.
+#[pyfunction]
+#[pyo3(signature = (data, *, infer_string_numbers=true, infer_string_literals=false, incompatible_scalar_policy="any", heterogeneous_list_policy="any", dict_mixed_policy="any", string_date_policy="never", numeric_promotion="promote", missing_key_policy="optional", null_policy="nullable", sample_size=10000))]
+fn infer_schema_with_diagnostics(
+    data: &Bound<'_, PyAny>,
+    infer_string_numbers: bool,
+    infer_string_literals: bool,
+    incompatible_scalar_policy: &str,
+    heterogeneous_list_policy: &str,
+    dict_mixed_policy: &str,
+    string_date_policy: &str,
+    numeric_promotion: &str,
+    missing_key_policy: &str,
+    null_policy: &str,
+    sample_size: usize,
+) -> PyResult<PyObject> {
+    let py = data.py();
+    infer::infer_schema_with_diagnostics_py(
+        py,
+        data,
+        infer_string_numbers,
+        infer_string_literals,
+        incompatible_scalar_policy,
+        heterogeneous_list_policy,
+        dict_mixed_policy,
+        string_date_policy,
+        numeric_promotion,
+        missing_key_policy,
+        null_policy,
+        sample_size,
+    )
+}
+
 #[pymodule]
 #[pyo3(name = "_infermodel")]
 fn _infermodel(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(infer_schema, m)?)?;
+    m.add_function(wrap_pyfunction!(infer_schema_with_diagnostics, m)?)?;
     Ok(())
 }

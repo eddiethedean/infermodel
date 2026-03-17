@@ -1,6 +1,6 @@
-"""Tests for public API: infer_schema and infer_model."""
+"""Tests for public API: infer(...)."""
 
-from infermodel import infer_schema, infer_model, InferConfig, model_from_schema
+from infermodel import InferConfig, infer, model_from_schema
 
 
 def test_infer_schema_flat():
@@ -8,7 +8,10 @@ def test_infer_schema_flat():
         {"id": 1, "name": "a"},
         {"id": 2, "name": "b"},
     ]
-    schema = infer_schema(data)
+    res = infer(data, return_model=False)
+    schema = res.schema_dict
+    assert schema is not None
+    assert schema["schema_version"] == 1
     assert schema["type"] == "model"
     assert "fields" in schema
     assert "id" in schema["fields"]
@@ -24,7 +27,8 @@ def test_infer_schema_optional_field():
         {"id": 1, "name": "a"},
         {"id": 2},
     ]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["name"]["required"] is False
 
 
@@ -33,7 +37,8 @@ def test_infer_schema_nullable():
         {"id": 1, "name": "a"},
         {"id": 2, "name": None},
     ]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["name"]["nullable"] is True
 
 
@@ -42,13 +47,15 @@ def test_infer_schema_int_float_promotion():
         {"x": 1},
         {"x": 1.5},
     ]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["x"]["type"] == "float"
 
 
 def test_infer_model_flat():
     data = [{"id": 1, "name": "Alice"}]
-    Model = infer_model(data, model_name="Record")
+    Model = infer(data, model_name="Record").model
+    assert Model is not None
     assert "id" in Model.model_fields
     assert "name" in Model.model_fields
     rec = Model(id=1, name="Alice")
@@ -61,7 +68,8 @@ def test_infer_schema_nested_single_level():
         {"id": 1, "user": {"name": "Alice", "age": 30}},
         {"id": 2, "user": {"name": "Bob", "age": 25}},
     ]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["type"] == "model"
     assert "user" in schema["fields"]
     user_field = schema["fields"]["user"]
@@ -75,7 +83,8 @@ def test_infer_model_nested_single_level():
         {"id": 1, "user": {"name": "Alice", "age": 30}},
         {"id": 2, "user": {"name": "Bob", "age": 25}},
     ]
-    Model = infer_model(data, model_name="Record")
+    Model = infer(data, model_name="Record").model
+    assert Model is not None
     assert "user" in Model.model_fields
     inst = Model(id=3, user={"name": "Carol", "age": 22})
     assert inst.user.name == "Carol"
@@ -115,7 +124,8 @@ def test_model_from_schema_exported_from_package():
 def test_infer_schema_with_config():
     data = [{"a": 1}]
     config = InferConfig()
-    schema = infer_schema(data, config=config)
+    schema = infer(data, config=config, return_model=False).schema_dict
+    assert schema is not None
     assert schema["type"] == "model"
     assert schema["fields"]["a"]["type"] == "int"
 
@@ -123,7 +133,8 @@ def test_infer_schema_with_config():
 def test_infer_schema_accepts_tuple():
     """Iterable includes tuple, not just list."""
     data = ({"id": 1}, {"id": 2})
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["type"] == "model"
     assert schema["fields"]["id"]["type"] == "int"
 
@@ -133,7 +144,8 @@ def test_infer_schema_accepts_generator():
     def rows():
         yield {"id": 1, "x": "a"}
         yield {"id": 2, "x": "b"}
-    schema = infer_schema(rows())
+    schema = infer(rows(), return_model=False).schema_dict
+    assert schema is not None
     assert schema["type"] == "model"
     assert schema["fields"]["id"]["type"] == "int"
     assert schema["fields"]["x"]["type"] == "str"
@@ -144,28 +156,35 @@ def test_infer_schema_sample_size_caps_rows():
     # 5 rows; with sample_size=2 only first 2 are used (both have "a")
     data = ({"a": i} for i in range(5))
     config = InferConfig(sample_size=2)
-    schema = infer_schema(data, config=config)
+    schema = infer(data, config=config, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["a"]["type"] == "int"
     # With sample_size=1 we still get one row
     data2 = ({"b": 1} for _ in range(10))
-    schema2 = infer_schema(data2, config=InferConfig(sample_size=1))
+    schema2 = infer(data2, config=InferConfig(sample_size=1), return_model=False).schema_dict
+    assert schema2 is not None
     assert schema2["fields"]["b"]["type"] == "int"
 
 
 def test_infer_schema_default_number_strings_inferred():
     """Default: number strings are inferred as int/float."""
     data = [{"count": "42"}, {"count": "100"}]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["count"]["type"] == "int"
     data_float = [{"x": "3.14"}, {"x": "2.5"}]
-    schema2 = infer_schema(data_float)
+    schema2 = infer(data_float, return_model=False).schema_dict
+    assert schema2 is not None
     assert schema2["fields"]["x"]["type"] == "float"
 
 
 def test_infer_schema_no_number_inference_when_disabled():
     """With infer_string_numbers=False, string columns stay str."""
     data = [{"count": "42"}, {"name": "hello"}]
-    schema = infer_schema(data, config=InferConfig(infer_string_numbers=False))
+    schema = infer(
+        data, config=InferConfig(infer_string_numbers=False), return_model=False
+    ).schema_dict
+    assert schema is not None
     assert schema["fields"]["count"]["type"] == "str"
     assert schema["fields"]["name"]["type"] == "str"
 
@@ -173,39 +192,51 @@ def test_infer_schema_no_number_inference_when_disabled():
 def test_infer_schema_string_looks_like_int():
     """String columns that look like integers are inferred as int (default)."""
     data = [{"count": "42"}, {"count": "100"}]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["count"]["type"] == "int"
 
 
 def test_infer_schema_string_looks_like_float():
     """String columns that look like floats are inferred as float (default)."""
     data = [{"x": "3.14"}, {"x": "2.5"}]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["x"]["type"] == "float"
 
 
 def test_infer_schema_string_mixed_numeric_and_text():
     """String column with mix of numeric and non-numeric merges to any."""
     data = [{"id": "42"}, {"id": "hello"}]
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert schema["fields"]["id"]["type"] == "any"
 
 
 def test_infer_schema_string_looks_like_bool():
     """With infer_string_literals=True, string columns that look like booleans are inferred as bool."""
     data = [{"active": "true"}, {"active": "false"}]
-    schema = infer_schema(data, config=InferConfig(infer_string_literals=True))
+    schema = infer(
+        data, config=InferConfig(infer_string_literals=True), return_model=False
+    ).schema_dict
+    assert schema is not None
     assert schema["fields"]["active"]["type"] == "bool"
 
     data_yes_no = [{"flag": "yes"}, {"flag": "no"}]
-    schema2 = infer_schema(data_yes_no, config=InferConfig(infer_string_literals=True))
+    schema2 = infer(
+        data_yes_no, config=InferConfig(infer_string_literals=True), return_model=False
+    ).schema_dict
+    assert schema2 is not None
     assert schema2["fields"]["flag"]["type"] == "bool"
 
 
 def test_infer_schema_string_null_like_nullable():
     """With infer_string_literals=True, string 'null' is treated as null (column becomes nullable)."""
     data = [{"id": "1"}, {"id": "null"}]
-    schema = infer_schema(data, config=InferConfig(infer_string_literals=True))
+    schema = infer(
+        data, config=InferConfig(infer_string_literals=True), return_model=False
+    ).schema_dict
+    assert schema is not None
     assert schema["fields"]["id"]["nullable"] is True
     assert schema["fields"]["id"]["type"] == "int"
 
@@ -216,7 +247,17 @@ def test_infer_schema_json_style_strings():
         {"count": "42", "active": "true", "note": "ok"},
         {"count": "0", "active": "false", "note": "null"},
     ]
-    schema = infer_schema(data, config=InferConfig(infer_string_literals=True))
+    schema = infer(
+        data, config=InferConfig(infer_string_literals=True), return_model=False
+    ).schema_dict
+    assert schema is not None
     assert schema["fields"]["count"]["type"] == "int"
     assert schema["fields"]["active"]["type"] == "bool"
     assert schema["fields"]["note"]["nullable"] is True
+
+
+def test_config_preset_for_csv() -> None:
+    data = [{"active": "true"}, {"active": "false"}]
+    schema = infer(data, config=InferConfig.for_csv(), return_model=False).schema_dict
+    assert schema is not None
+    assert schema["fields"]["active"]["type"] == "bool"

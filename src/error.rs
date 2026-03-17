@@ -27,7 +27,9 @@ impl std::error::Error for InferError {}
 impl From<InferError> for PyErr {
     fn from(e: InferError) -> PyErr {
         match e {
-            InferError::InvalidInput(msg) => PyTypeError::new_err(format!("invalid input: {}", msg)),
+            InferError::InvalidInput(msg) => {
+                PyTypeError::new_err(format!("invalid input: {}", msg))
+            }
             InferError::PolicyError(msg) => PyValueError::new_err(format!("policy error: {}", msg)),
         }
     }

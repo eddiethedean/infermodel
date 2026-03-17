@@ -5,7 +5,7 @@ from __future__ import annotations
 import hypothesis.strategies as st
 from hypothesis import given, settings
 
-from infermodel import infer_schema, infer_model, InferConfig
+from infermodel import InferConfig, infer
 from infermodel.emit_pydantic import model_from_schema
 
 
@@ -33,8 +33,9 @@ list_of_dicts = st.lists(row, min_size=0, max_size=50)
 @given(data=list_of_dicts)
 @settings(max_examples=200, deadline=2000)
 def test_infer_schema_never_crashes(data: list[dict]) -> None:
-    """infer_schema accepts any list of dicts with string keys and primitive values."""
-    schema = infer_schema(data)
+    """infer accepts any list of dicts with string keys and primitive values."""
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     assert isinstance(schema, dict)
     assert schema.get("type") == "model"
     assert "fields" in schema
@@ -55,7 +56,8 @@ def test_infer_schema_never_crashes(data: list[dict]) -> None:
 @settings(max_examples=200, deadline=2000)
 def test_infer_schema_then_model_from_schema_no_crash(data: list[dict]) -> None:
     """model_from_schema(infer_schema(data)) builds a model without raising."""
-    schema = infer_schema(data)
+    schema = infer(data, return_model=False).schema_dict
+    assert schema is not None
     model = model_from_schema(schema, model_name="Inferred")
     assert model is not None
 
@@ -79,6 +81,7 @@ def list_of_str_dicts_same_keys(draw: st.DrawFn) -> list[dict]:
 def test_round_trip_when_strings_only_and_no_number_inference(data: list[dict]) -> None:
     """With infer_string_numbers=False and only str/None, each row validates against the inferred model."""
     config = InferConfig(infer_string_numbers=False)
-    model = infer_model(data, model_name="Record", config=config)
+    model = infer(data, model_name="Record", config=config).model
+    assert model is not None
     for row in data:
         model(**row)

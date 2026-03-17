@@ -2,8 +2,9 @@
 
 use crate::classify::ValueClass;
 use crate::config::{DictMixedPolicy, InferConfig};
-use crate::spec::{ModelSpec, TypeSpec};
 use crate::error::InferError;
+use crate::spec::{ModelSpec, TypeSpec};
+use std::collections::HashMap;
 
 /// Accumulated evidence for a single field across rows.
 #[derive(Debug, Default)]
@@ -11,6 +12,7 @@ pub struct FieldEvidence {
     pub presence_count: u32,
     pub null_count: u32,
     pub type_spec: Option<TypeSpec>,
+    pub type_counts: HashMap<String, u32>,
 }
 
 /// Merge two scalar type specs (e.g. int + float -> float).
@@ -73,7 +75,9 @@ pub fn merge_type_specs(
         // Merging two nested models: merge field-wise.
         (Model(m1), Model(m2)) => Ok(Model(merge_models(m1, m2, config)?)),
         // Promote int/float combinations using scalar rules.
-        (Int, Float) | (Float, Int) => merge_scalar_types(&ValueClass::Int, &ValueClass::Float, config),
+        (Int, Float) | (Float, Int) => {
+            merge_scalar_types(&ValueClass::Int, &ValueClass::Float, config)
+        }
         // Identical types: keep either (safe for non-model types; model handled above).
         (x, y) if std::mem::discriminant(x) == std::mem::discriminant(y) => Ok(a.clone()),
         // Dict mixed with non-dict: respect policy (currently Any/Union/Error).

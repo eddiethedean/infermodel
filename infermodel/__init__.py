@@ -5,13 +5,18 @@ Infer a schema from an iterable of mappings (e.g. list of dicts, generators) usi
 then convert that inferred schema into a Pydantic model on the Python side.
 """
 
-from infermodel.api import infer_schema, infer_model
 from infermodel.config import InferConfig
 from infermodel.emit_pydantic import model_from_schema
+from infermodel.infer import InferResult, infer
+from infermodel.schema_tools import format_schema, print_schema, schema_diff, schema_merge
 
 __all__ = [
-    "infer_schema",
-    "infer_model",
+    "infer",
+    "InferResult",
     "model_from_schema",
     "InferConfig",
+    "format_schema",
+    "print_schema",
+    "schema_diff",
+    "schema_merge",
 ]
