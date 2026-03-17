@@ -1,6 +1,9 @@
 """Tests for public API: infer(...)."""
 
+import pytest
+
 from infermodel import InferConfig, infer, model_from_schema
+from infermodel import infer_iter, infer_iter_rows
 
 
 def test_infer_schema_flat():
@@ -261,3 +264,113 @@ def test_config_preset_for_csv() -> None:
     schema = infer(data, config=InferConfig.for_csv(), return_model=False).schema_dict
     assert schema is not None
     assert schema["fields"]["active"]["type"] == "bool"
+
+
+def test_config_presets_strict_and_permissive_smoke() -> None:
+    # permissive should not raise on dict/non-dict conflicts
+    data = [{"x": {"a": 1}}, {"x": 1}]
+    res = infer(data, config=InferConfig.permissive(), return_model=False)
+    assert res.schema_dict is not None
+
+    # strict should raise on dict/non-dict conflicts
+    with pytest.raises(ValueError):
+        infer(data, config=InferConfig.strict(), return_model=False)
+
+
+def test_infer_iter_yields_instances_for_generator() -> None:
+    def rows():
+        yield {"id": 1, "name": "a"}
+        yield {"id": 2, "name": "b"}
+
+    res, it = infer_iter(rows(), model_name="Row")
+    assert res.model is not None
+    items = list(it)
+    assert len(items) == 2
+    assert items[0].id == 1
+    assert items[1].name == "b"
+
+
+def test_infer_iter_rows_yields_row_and_error() -> None:
+    data = [
+        {"id": 1},
+        {"id": "oops"},  # invalid once inferred as int
+        {"id": 2},
+    ]
+    # Force inference from first row only so later string row is invalid.
+    res, it = infer_iter_rows(data, model_name="Row", config=InferConfig(sample_size=1))
+    assert res.model is not None
+    out = list(it)
+    assert out[0][1] is not None and out[0][2] is None
+    assert out[1][1] is None and out[1][2] is not None
+    assert out[2][1] is not None and out[2][2] is None
+
+
+def test_infer_diagnostics_truncation_flag() -> None:
+    # sample_size=1 and 3 rows should report maybe_truncated=True with rows_used=1
+    data = [{"x": 1}, {"x": 2}, {"x": 3}]
+    res = infer(data, return_model=False, return_diagnostics=True, config=InferConfig(sample_size=1))
+    assert res.diagnostics is not None
+    assert res.diagnostics["rows_used"] == 1
+    assert res.diagnostics["maybe_truncated"] is True
+
+    # sample_size=0 (no limit) should not truncate
+    res2 = infer(data, return_model=False, return_diagnostics=True, config=InferConfig(sample_size=0))
+    assert res2.diagnostics is not None
+    assert res2.diagnostics["rows_used"] == 3
+    assert res2.diagnostics["maybe_truncated"] is False
+
+
+def test_infer_iter_sample_size_zero_buffers_all_before_yield() -> None:
+    consumed = []
+
+    def rows():
+        for i in range(3):
+            consumed.append(i)
+            yield {"x": i}
+
+    res, it = infer_iter(rows(), config=InferConfig(sample_size=0), model_name="R")
+    # if sample_size=0, inference consumes entire iterable up-front
+    assert consumed == [0, 1, 2]
+    items = list(it)
+    assert [m.x for m in items] == [0, 1, 2]
+
+
+def test_infer_iter_rows_sample_size_zero_yields_errors_without_stopping() -> None:
+    data = [{"x": 1}, {"x": "bad"}, {"x": 2}]
+    res, it = infer_iter_rows(data, config=InferConfig(sample_size=0), model_name="R")
+    out = list(it)
+    assert out[0][1] is not None and out[0][2] is None
+    # schema inferred from all rows -> likely any; force strict by sample_size=1 to ensure error
+    res2, it2 = infer_iter_rows(data, config=InferConfig(sample_size=1), model_name="R")
+    out2 = list(it2)
+    assert out2[1][1] is None and out2[1][2] is not None
+
+
+def test_infer_iter_empty_iterable_does_not_crash() -> None:
+    def rows():
+        if False:
+            yield {"x": 1}
+
+    res, it = infer_iter(rows(), config=InferConfig(sample_size=10), model_name="R")
+    assert res.schema_dict is not None
+    assert list(it) == []
+
+
+def test_infer_iter_rows_empty_iterable() -> None:
+    def rows():
+        if False:
+            yield {"x": 1}
+
+    res, it = infer_iter_rows(rows(), config=InferConfig(sample_size=5), model_name="R")
+    assert res.schema_dict is not None
+    assert list(it) == []
+
+
+def test_infer_iter_consumes_buffer_then_remainder() -> None:
+    def rows():
+        for i in range(5):
+            yield {"x": i}
+
+    res, it = infer_iter(rows(), config=InferConfig(sample_size=2), model_name="R")
+    items = list(it)
+    assert [m.x for m in items] == [0, 1, 2, 3, 4]

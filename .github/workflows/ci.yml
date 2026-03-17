@@ -173,4 +173,4 @@ jobs:
         env:
           VIRTUAL_ENV: ${{ github.workspace }}/.venv
       - name: Run Python tests
-        run: $PY -m pytest tests/ -v --tb=short --timeout 60
+        run: $PY -m pytest tests/ -v --tb=short --timeout 60 --cov --cov-branch --cov-report=term-missing --cov-fail-under=97

@@ -138,6 +138,9 @@ maturin develop
 
 # Run tests
 pytest
+
+# Run tests with branch coverage
+pytest --cov --cov-branch --cov-report=term-missing
 ```
 
 ## Links

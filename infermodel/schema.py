@@ -77,7 +77,12 @@ def schema_from_dict(schema: Mapping[str, Any]) -> SchemaModel:
         raise ValueError(f"Unsupported schema_version: {schema_version!r}")
     if schema.get("type") != "model":
         raise ValueError("Schema must have type 'model'")
-    raw_fields = schema.get("fields") or {}
+    if "fields" in schema:
+        raw_fields = schema.get("fields")
+        if raw_fields is None:
+            raw_fields = {}
+    else:
+        raw_fields = {}
     if not isinstance(raw_fields, Mapping):
         raise TypeError("Schema 'fields' must be a mapping")
     fields: dict[str, FieldSpec] = {}
@@ -137,7 +142,12 @@ def type_spec_from_obj(obj: Any) -> TypeSpec:
                 raise TypeError("union variants must be a sequence")
             return UnionTypeSpec(tuple(type_spec_from_obj(v) for v in variants_raw))
         if kind == "model":
-            raw_fields = obj.get("fields") or {}
+            if "fields" in obj:
+                raw_fields = obj.get("fields")
+                if raw_fields is None:
+                    raw_fields = {}
+            else:
+                raw_fields = {}
             if not isinstance(raw_fields, Mapping):
                 raise TypeError("model fields must be a mapping")
             fields: dict[str, FieldSpec] = {}

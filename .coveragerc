@@ -1,0 +1,13 @@
+[run]
+branch = True
+source = infermodel
+
+[report]
+show_missing = True
+skip_covered = False
+omit =
+    */_infermodel.*  # compiled extension stub
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:

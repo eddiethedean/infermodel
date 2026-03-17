@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Iterable, Iterator, Mapping, Optional, Tuple
+
+from pydantic import ValidationError
 
 import infermodel._infermodel as _infermodel
 from infermodel.config import InferConfig
@@ -83,4 +85,140 @@ def infer(
         model=model,
         diagnostics=diagnostics,
     )
+
+
+def infer_iter(
+    data: Iterable[Mapping[str, Any]],
+    *,
+    config: Optional[InferConfig] = None,
+    model_name: str = "InferredModel",
+    return_diagnostics: bool = False,
+) -> Tuple[InferResult, Iterator[Any]]:
+    """
+    Infer a model once, then yield validated Pydantic instances for each row.
+
+    Works well for generators: we buffer the sampled rows used for inference, then
+    yield instances for buffered rows followed by the remainder of the iterable.
+
+    Note: if config.sample_size == 0, we must consume the full iterable to infer
+    the schema before yielding any instances.
+    """
+    _config = config if config is not None else InferConfig()
+
+    it = iter(data)
+    if _config.sample_size == 0:
+        buffered = list(it)
+        res = infer(
+            buffered,
+            config=_config,
+            model_name=model_name,
+            return_model=True,
+            return_schema=True,
+            return_diagnostics=return_diagnostics,
+        )
+        Model = res.model
+        assert Model is not None
+
+        def gen_all() -> Iterator[Any]:
+            for row in buffered:
+                yield Model(**row)
+
+        return res, gen_all()
+
+    n = _config.sample_size
+    buffered = []
+    for _ in range(n):
+        try:
+            buffered.append(next(it))
+        except StopIteration:
+            break
+
+    res = infer(
+        buffered,
+        config=_config,
+        model_name=model_name,
+        return_model=True,
+        return_schema=True,
+        return_diagnostics=return_diagnostics,
+    )
+    Model = res.model
+    assert Model is not None
+
+    def gen() -> Iterator[Any]:
+        for row in buffered:
+            yield Model(**row)
+        for row in it:
+            yield Model(**row)
+
+    return res, gen()
+
+
+def infer_iter_rows(
+    data: Iterable[Mapping[str, Any]],
+    *,
+    config: Optional[InferConfig] = None,
+    model_name: str = "InferredModel",
+    return_diagnostics: bool = False,
+) -> Tuple[InferResult, Iterator[Tuple[Mapping[str, Any], Optional[Any], Optional[Exception]]]]:
+    """
+    Like infer_iter(...), but yields `(row, model_or_none, error_or_none)` for every row.
+
+    Invalid rows do not stop iteration; they yield `(row, None, ValidationError)`.
+    """
+    _config = config if config is not None else InferConfig()
+    it = iter(data)
+
+    if _config.sample_size == 0:
+        buffered = list(it)
+        res = infer(
+            buffered,
+            config=_config,
+            model_name=model_name,
+            return_model=True,
+            return_schema=True,
+            return_diagnostics=return_diagnostics,
+        )
+        Model = res.model
+        assert Model is not None
+
+        def gen_all() -> Iterator[Tuple[Mapping[str, Any], Optional[Any], Optional[Exception]]]:
+            for row in buffered:
+                try:
+                    yield row, Model(**row), None
+                except ValidationError as e:  # pragma: no cover
+                    yield row, None, e
+
+        return res, gen_all()
+
+    buffered = []
+    for _ in range(_config.sample_size):
+        try:
+            buffered.append(next(it))
+        except StopIteration:
+            break
+
+    res = infer(
+        buffered,
+        config=_config,
+        model_name=model_name,
+        return_model=True,
+        return_schema=True,
+        return_diagnostics=return_diagnostics,
+    )
+    Model = res.model
+    assert Model is not None
+
+    def gen() -> Iterator[Tuple[Mapping[str, Any], Optional[Any], Optional[Exception]]]:
+        for row in buffered:
+            try:
+                yield row, Model(**row), None
+            except ValidationError as e:
+                yield row, None, e
+        for row in it:
+            try:
+                yield row, Model(**row), None
+            except ValidationError as e:
+                yield row, None, e
+
+    return res, gen()
 
