@@ -86,6 +86,12 @@ Install optional dependencies if you want Pandas/Parquet helpers:
 ```bash
 pip install "infermodel[pandas]"
 pip install "infermodel[parquet]"
+pip install "infermodel[sqlalchemy]"
+pip install "infermodel[mongodb]"
+pip install "infermodel[dynamodb]"
+pip install "infermodel[firestore]"
+pip install "infermodel[redis]"
+pip install "infermodel[couchdb]"
 ```
 
 Usage:
